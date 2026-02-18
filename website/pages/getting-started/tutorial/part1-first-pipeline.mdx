@@ -1,5 +1,6 @@
 import { Callout, Steps, Tabs } from 'nextra/components'
-import { Card, Cards } from '../../components/cards'
+import { Card, Cards } from '@/components/cards'
+import { Mermaid } from '@/components/mermaid'
 
 # Part 1: Your First Pipeline
 
@@ -168,7 +169,7 @@ of your code. This is the version that will execute when you trigger a run.
 <Callout type="info">
 Think of publishing like a git commit — it captures a point-in-time snapshot. You can
 always roll back to a previous version from the **Overview** tab. We will cover
-versioning in detail in [Part 8](/tutorial/part8-complete-platform).
+versioning in detail in [Part 8](/getting-started/tutorial/part8-complete-platform).
 </Callout>
 
 ### Run the pipeline
@@ -274,9 +275,14 @@ Click **raw_launches** to see the table detail with three tabs:
 
 You just completed the full RAT pipeline lifecycle:
 
-```
-Write SQL → Save → Preview → Publish → Run → Query → Explore
-```
+<Mermaid chart={`graph LR
+    A["Write SQL"] --> B["Save"]
+    B --> C["Preview"]
+    C --> D["Publish"]
+    D --> E["Run"]
+    E --> F["Query"]
+    F --> G["Explore"]
+`} />
 
 Every pipeline in RAT follows this same flow, whether it is a simple Bronze ingestion
 or a complex Gold aggregation. The tools change (SQL vs Python, VALUES vs landing zones,
@@ -307,7 +313,7 @@ need real data. In Part 2, you will upload CSV files through **landing zones** a
 pipelines that ingest them automatically.
 
 <Cards>
-  <Card title="Part 2: Landing Zones →" href="/tutorial/part2-landing-zones">
+  <Card title="Part 2: Landing Zones →" href="/getting-started/tutorial/part2-landing-zones">
     Upload real CSV data and build pipelines that read from landing zones
   </Card>
 </Cards>

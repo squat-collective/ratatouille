@@ -1,5 +1,6 @@
 import { Callout, Steps, Tabs } from 'nextra/components'
-import { Card, Cards } from '../../components/cards'
+import { Card, Cards } from '@/components/cards'
+import { Mermaid } from '@/components/mermaid'
 
 # Annotations
 
@@ -371,13 +372,10 @@ Pipeline configuration can be defined in two places:
 
 When both exist, **annotations take precedence**. The resolution order is:
 
-```
-Annotations (highest priority)
-    ↓
-config.yaml
-    ↓
-Default values (lowest priority)
-```
+<Mermaid chart={`graph TD
+    A["Annotations\n(highest priority)"] -->|overrides| B["config.yaml"]
+    B -->|overrides| C["Default values\n(lowest priority)"]
+`} />
 
 ### config.yaml Format
 

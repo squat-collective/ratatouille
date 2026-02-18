@@ -329,18 +329,11 @@ curl -X DELETE http://localhost:8080/api/v1/triggers/{trigger-id}
 
 Triggers can be combined to create sophisticated automation pipelines:
 
-```
-Landing Zone Upload
-       │
-       ▼
-  Bronze Pipeline (ingests raw CSV)
-       │
-       ▼ (pipeline_success trigger)
-  Silver Pipeline (cleans + deduplicates)
-       │
-       ▼ (cron_dependency trigger, hourly)
-  Gold Pipeline (aggregates for dashboard)
-```
+<Mermaid chart={`graph TD
+    A["Landing Zone Upload"] --> B["Bronze Pipeline\n(ingests raw CSV)"]
+    B -->|"pipeline_success trigger"| C["Silver Pipeline\n(cleans + deduplicates)"]
+    C -->|"cron_dependency trigger, hourly"| D["Gold Pipeline\n(aggregates for dashboard)"]
+`} />
 
 In this pattern:
 1. A file upload triggers the Bronze pipeline immediately.

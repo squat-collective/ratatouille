@@ -1,5 +1,5 @@
 import { Callout, Steps, Tabs } from 'nextra/components'
-import { Card, Cards } from '../../components/cards'
+import { Card, Cards } from '@/components/cards'
 import { Mermaid } from '@/components/mermaid'
 
 # Pipeline Execution
@@ -161,13 +161,10 @@ The type determines the execution path in Phase 2.
 
 Configuration comes from up to three sources, merged in priority order:
 
-```
-Annotations (-- @key: value in SQL)   ← highest priority
-            ↓
-config.yaml (in pipeline directory)    ← medium priority
-            ↓
-Default values                         ← lowest priority
-```
+<Mermaid chart={`graph TD
+    A["Annotations\n(-- @key: value in SQL)"] -->|overrides| B["config.yaml\n(in pipeline directory)"]
+    B -->|overrides| C["Default values"]
+`} />
 
 ### Annotation Parsing
 
@@ -374,7 +371,7 @@ POST /api/v2/trees/main/merge
 Body: { fromRef: "run-{id}", fromHash: "{branch_hash}" }
 ```
 
-The merge uses Nessie's optimistic concurrency. If another run merged to `main` between branch creation and this merge, Nessie resolves the conflict (Iceberg tables in different namespaces/layers never conflict). If there is a genuine conflict (same table modified), the merge fails and the runner retries (see [Nessie Branching](/architecture/nessie-branching)).
+The merge uses Nessie's optimistic concurrency. If another run merged to `main` between branch creation and this merge, Nessie resolves the conflict (Iceberg tables in different namespaces/layers never conflict). If there is a genuine conflict (same table modified), the merge fails and the runner retries (see [Nessie Branching](/contributing/architecture/nessie-branching)).
 
 ### Delete Branch
 
@@ -471,7 +468,7 @@ If the runner crashes mid-execution, the run is left in `running` state with an 
 2. **Orphan branch cleanup** --- the reaper queries Nessie for branches matching `run-*` that are older than 6 hours (configurable via `nessie_orphan_branch_max_age_hours`). These branches are deleted.
 
 <Callout type="info">
-The reaper runs every 60 minutes (configurable) and performs 6 cleanup tasks. See the [Reaper section](/architecture/services#ratd--platform-api-server) for all tasks.
+The reaper runs every 60 minutes (configurable) and performs 6 cleanup tasks. See the [Reaper section](/contributing/architecture/services#ratd--platform-api-server) for all tasks.
 </Callout>
 
 ---

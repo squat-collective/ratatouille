@@ -1,5 +1,5 @@
 import { Callout, Steps, Tabs } from 'nextra/components'
-import { Card, Cards } from '../../components/cards'
+import { Card, Cards } from '@/components/cards'
 import { Mermaid } from '@/components/mermaid'
 
 # Core Concepts
@@ -365,7 +365,7 @@ Triggers define **what causes a pipeline to run**. A pipeline can have multiple 
 
 RAT uses standard 5-field cron expressions:
 
-```
+```text filename="Cron Format"
 ┌─── minute (0-59)
 │ ┌─── hour (0-23)
 │ │ ┌─── day of month (1-31)

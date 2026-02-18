@@ -1,5 +1,6 @@
 import { Callout, Steps, Tabs } from 'nextra/components'
-import { Card, Cards } from '../../components/cards'
+import { Card, Cards } from '@/components/cards'
+import { Mermaid } from '@/components/mermaid'
 
 # Architecture Decision Records
 
@@ -182,16 +183,12 @@ RAT has the following accepted ADRs:
 
 ## ADR Lifecycle
 
-```
-┌──────────┐     ┌──────────┐     ┌─────────────┐
-│ Proposed │ ──→ │ Accepted │ ──→ │ Superseded  │
-└──────────┘     └──────────┘     │ by ADR-NNN  │
-                                  └─────────────┘
-                        │
-                        └──→ ┌────────────┐
-                             │ Deprecated │
-                             └────────────┘
-```
+<Mermaid chart={`stateDiagram-v2
+    [*] --> Proposed
+    Proposed --> Accepted
+    Accepted --> Superseded: replaced by new ADR
+    Accepted --> Deprecated: feature removed
+`} />
 
 | Status | Meaning |
 |---|---|

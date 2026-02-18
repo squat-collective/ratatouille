@@ -1,9 +1,10 @@
 import { Callout, Steps, Tabs } from 'nextra/components'
-import { Card, Cards } from '../../components/cards'
+import { Card, Cards } from '@/components/cards'
+import { Mermaid } from '@/components/mermaid'
 
 # Part 3: Building Layers with ref() 🏗️
 
-**Time:** ~10 minutes | **Prerequisites:** [Part 2](/tutorial/part2-landing-zones) completed (bronze pipelines running)
+**Time:** ~10 minutes | **Prerequisites:** [Part 2](/getting-started/tutorial/part2-landing-zones) completed (bronze pipelines running)
 
 In this part, you will create your first **Silver pipeline** that joins two Bronze tables
 together. You will learn the `ref()` syntax for declaring dependencies between pipelines
@@ -158,11 +159,10 @@ Click **Lineage** in the sidebar navigation (or go to `/lineage` directly).
 
 You should see a directed acyclic graph (DAG) with three nodes:
 
-```
-bronze.mission_log ──────┐
-                         ├──▶ silver.enriched_launches
-bronze.rocket_registry ──┘
-```
+<Mermaid chart={`graph LR
+    A["bronze.mission_log"] --> C["silver.enriched_launches"]
+    B["bronze.rocket_registry"] --> C
+`} />
 
 ![Lineage DAG showing Bronze to Silver dependencies](/tutorial/lineage-dag.png)
 
@@ -249,7 +249,7 @@ on every run.
 incrementally.
 
 <Cards num={1}>
-  <Card title="Part 4: Merge Strategies & Incremental Loading →" href="/tutorial/part4-merge-strategies">
+  <Card title="Part 4: Merge Strategies & Incremental Loading →" href="/getting-started/tutorial/part4-merge-strategies">
     Understand all 6 merge strategies. Make a pipeline incremental with watermark. ~15 min
   </Card>
 </Cards>

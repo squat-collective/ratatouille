@@ -1,5 +1,6 @@
 import { Callout } from 'nextra/components'
-import { Card, Cards } from '../components/cards'
+import { Card, Cards } from '@/components/cards'
+import { Mermaid } from '@/components/mermaid'
 
 # What is RAT?
 
@@ -22,9 +23,11 @@ Community Edition is free and open-source.
 
 RAT uses a **medallion architecture** (Bronze → Silver → Gold) to organize data transformations:
 
-```
-Raw Files → Bronze (raw ingest) → Silver (cleaned) → Gold (business-ready)
-```
+<Mermaid chart={`graph LR
+    A["Raw Files"] --> B["Bronze\n(raw ingest)"]
+    B --> C["Silver\n(cleaned)"]
+    C --> D["Gold\n(business-ready)"]
+`} />
 
 You write SQL pipelines that transform data between layers. RAT handles execution, scheduling, versioning, and quality testing.
 
@@ -82,23 +85,24 @@ WHERE updated_at > '{{ watermark_value }}'
 
 RAT runs as 7 containers orchestrated by Docker Compose:
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    docker compose up                          │
-│                                                              │
-│  ┌────────┐  ┌────────┐  ┌────────┐  ┌──────────────────┐  │
-│  │  ratd  │  │  ratq  │  │ runner │  │     portal       │  │
-│  │  (Go)  │  │ (Py)   │  │  (Py)  │  │   (Next.js)     │  │
-│  │  API   │◄─┤ Query  │  │ Execute│  │   Web IDE        │  │
-│  └───┬────┘  └────────┘  └────────┘  └──────────────────┘  │
-│      │                                                       │
-│  ┌───┴────┐  ┌────────┐  ┌────────┐                        │
-│  │postgres│  │ minio  │  │ nessie │                        │
-│  └────────┘  └────────┘  └────────┘                        │
-└──────────────────────────────────────────────────────────────┘
-```
+<Mermaid chart={`graph TD
+    subgraph compose["docker compose up"]
+        ratd["ratd\n(Go) API"]
+        ratq["ratq\n(Python) Query"]
+        runner["runner\n(Python) Execute"]
+        portal["portal\n(Next.js) Web IDE"]
+        postgres["postgres"]
+        minio["minio"]
+        nessie["nessie"]
+    end
 
-Read more in the [Architecture Overview](/architecture/overview).
+    ratq -.-> ratd
+    ratd --> postgres
+    ratd --> minio
+    ratd --> nessie
+`} />
+
+Read more in the [Architecture Overview](/contributing/architecture/overview).
 
 ---
 

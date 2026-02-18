@@ -1,9 +1,10 @@
 import { Callout, Steps, Tabs } from 'nextra/components'
-import { Card, Cards } from '../../components/cards'
+import { Card, Cards } from '@/components/cards'
+import { Mermaid } from '@/components/mermaid'
 
 # Part 8: Gold Layer & Complete Platform 🏆
 
-**Time:** ~15 minutes | **Prerequisites:** [Part 7](/tutorial/part7-triggers) completed (triggers configured)
+**Time:** ~15 minutes | **Prerequisites:** [Part 7](/getting-started/tutorial/part7-triggers) completed (triggers configured)
 
 This is the final part of the tutorial. You will create a Gold pipeline, wire the complete
 trigger chain from landing zone to analytics, and explore the platform features that take
@@ -169,19 +170,29 @@ Navigate to the **Lineage** page (sidebar → Lineage, or go to `/lineage` direc
 
 You should now see the full DAG with all nodes:
 
-```
-Landing Zones          Bronze              Silver                Gold
-┌─────────────┐    ┌──────────────┐    ┌──────────────────┐    ┌──────────────────┐
-│ launch-data │───▶│ mission_log  │───▶│ enriched_launches│───▶│ launch_summary   │
-└─────────────┘    └──────────────┘    │                  │    └──────────────────┘
-┌─────────────┐    ┌──────────────┐    │                  │
-│vehicle-ctlg │───▶│rocket_registr│───▶│                  │
-└─────────────┘    └──────────────┘    └──────────────────┘
+<Mermaid chart={`graph LR
+    subgraph LZ["Landing Zones"]
+        ld["launch-data"]
+        vc["vehicle-catalog"]
+    end
+    subgraph Bronze
+        ml["mission_log"]
+        rr["rocket_registry"]
+    end
+    subgraph Silver
+        el["enriched_launches"]
+        vs["vehicle_stats (py)"]
+    end
+    subgraph Gold
+        ls["launch_summary"]
+    end
 
-                                       ┌──────────────────┐
-                                       │vehicle_stats (py)│
-                                       └──────────────────┘
-```
+    ld --> ml
+    vc --> rr
+    ml --> el
+    rr --> el
+    el --> ls
+`} />
 
 The lineage DAG shows every pipeline, every `ref()` dependency, and the landing zones
 that feed into Bronze. Click any node to jump to that pipeline's detail page.
@@ -484,19 +495,21 @@ platform. Here is everything in your pipeline graph:
 
 ### Architecture
 
-```
-                        ┌───────────────────────────────────────────────────────┐
-                        │                     RAT Platform                      │
-                        │                                                       │
-  CSV Upload ──────────▶│  Landing Zones → Bronze → Silver → Gold              │
-                        │       │            │         │        │               │
-  Cron Schedule ───────▶│  Triggers   Quality Tests  Lineage  Versioning       │
-                        │                                                       │
-  Webhook ─────────────▶│  Query Editor  ←  Iceberg Tables  ←  DuckDB         │
-                        │                                                       │
-                        │  Retention: Reaper (Go) + Iceberg Maintenance (Py)   │
-                        └───────────────────────────────────────────────────────┘
-```
+<Mermaid chart={`graph LR
+    csv["CSV Upload"] --> lz
+    cron["Cron Schedule"] --> trig
+    wh["Webhook"] --> trig
+
+    subgraph platform["RAT Platform"]
+        lz["Landing Zones"] --> B["Bronze"] --> S["Silver"] --> G["Gold"]
+        trig["Triggers"]
+        qt["Quality Tests"]
+        lin["Lineage"]
+        ver["Versioning"]
+        duckdb["DuckDB"] --> iceberg["Iceberg Tables"] --> qe["Query Editor"]
+        retention["Retention: Reaper + Iceberg Maintenance"]
+    end
+`} />
 
 ### What You Learned
 
@@ -525,7 +538,7 @@ best next steps depending on what you want to do.
     Complete reference for annotations, SQL templating, configuration options, the TypeScript
     SDK, and the full REST API (75+ endpoints).
   </Card>
-  <Card title="Architecture" href="/architecture/overview">
+  <Card title="Architecture" href="/contributing/architecture/overview">
     Understand how RAT works under the hood: services, pipeline execution, Nessie branching,
     storage layout, the plugin system, and the database schema.
   </Card>

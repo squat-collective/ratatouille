@@ -1,4 +1,5 @@
 import { Callout, Steps, Tabs } from 'nextra/components'
+import { Mermaid } from '@/components/mermaid'
 
 # Data Retention
 
@@ -194,18 +195,11 @@ Manual reaper triggers are useful after bulk deleting pipelines or when you want
 
 Landing zones have their own retention model:
 
-```
-Upload file to landing zone
-    │
-    ▼
-File at: {ns}/landing/{zone}/{filename}
-    │
-    ▼ (pipeline runs with archive_landing_zones: true)
-File moved to: {ns}/landing/{zone}/_processed/{run_id}/{filename}
-    │
-    ▼ (reaper runs, zone has auto_purge: true)
-File deleted after processed_max_age_days
-```
+<Mermaid chart={`graph TD
+    A["Upload file to landing zone"] --> B["Active file in landing zone"]
+    B -->|"pipeline runs\narchive_landing_zones: true"| C["Moved to _processed/run_id/"]
+    C -->|"reaper runs\nauto_purge: true"| D["Deleted after\nprocessed_max_age_days"]
+`} />
 
 ### Landing Zone Settings
 

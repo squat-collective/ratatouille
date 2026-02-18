@@ -1,5 +1,6 @@
 import { Callout } from 'nextra/components'
-import { Card, Cards } from '../../components/cards'
+import { Card, Cards } from '@/components/cards'
+import { Mermaid } from '@/components/mermaid'
 
 # Tutorial: Build a Space Launch Analytics Platform
 
@@ -19,15 +20,29 @@ every feature RAT has to offer.
 
 By the end, you will have a fully automated pipeline DAG that looks like this:
 
-```
-Landing Zones          Bronze              Silver                Gold
-┌─────────────┐    ┌──────────────┐    ┌──────────────────┐    ┌──────────────────┐
-│ launch-data │───▶│ mission_log  │───▶│ enriched_launches│───▶│ launch_summary   │
-└─────────────┘    └──────────────┘    │                  │    └──────────────────┘
-┌─────────────┐    ┌──────────────┐    │                  │    ┌──────────────────┐
-│vehicle-ctlg │───▶│rocket_registr│───▶│                  │    │vehicle_stats (py)│
-└─────────────┘    └──────────────┘    └──────────────────┘    └──────────────────┘
-```
+<Mermaid chart={`graph LR
+    subgraph LZ["Landing Zones"]
+        ld["launch-data"]
+        vc["vehicle-catalog"]
+    end
+    subgraph Bronze
+        ml["mission_log"]
+        rr["rocket_registry"]
+    end
+    subgraph Silver
+        el["enriched_launches"]
+    end
+    subgraph Gold
+        ls["launch_summary"]
+        vs["vehicle_stats (py)"]
+    end
+
+    ld --> ml
+    vc --> rr
+    ml --> el
+    rr --> el
+    el --> ls
+`} />
 
 ---
 
@@ -52,28 +67,28 @@ It takes under 5 minutes.
 Each part builds on the previous one. We recommend following them in order.
 
 <Cards>
-  <Card title="Part 1: Your First Pipeline" href="/tutorial/part1-first-pipeline">
+  <Card title="Part 1: Your First Pipeline" href="/getting-started/tutorial/part1-first-pipeline">
     Create a SQL pipeline, preview it, publish it, run it, and query the results. ~15 min
   </Card>
-  <Card title="Part 2: Landing Zones" href="/tutorial/part2-landing-zones">
+  <Card title="Part 2: Landing Zones" href="/getting-started/tutorial/part2-landing-zones">
     Upload real CSV data through landing zones and ingest it into Bronze pipelines. ~15 min
   </Card>
-  <Card title="Part 3: Building Layers" href="/tutorial/part3-building-layers">
+  <Card title="Part 3: Building Layers" href="/getting-started/tutorial/part3-building-layers">
     Create Silver pipelines that join Bronze tables using ref(). See the lineage DAG. ~10 min
   </Card>
-  <Card title="Part 4: Merge Strategies" href="/tutorial/part4-merge-strategies">
+  <Card title="Part 4: Merge Strategies" href="/getting-started/tutorial/part4-merge-strategies">
     Make pipelines incremental. Understand all 6 merge strategies. ~15 min
   </Card>
-  <Card title="Part 5: Quality Tests" href="/tutorial/part5-quality-tests">
+  <Card title="Part 5: Quality Tests" href="/getting-started/tutorial/part5-quality-tests">
     Gate pipeline merges with SQL quality tests. Catch bad data before it lands. ~10 min
   </Card>
-  <Card title="Part 6: Python Pipelines" href="/tutorial/part6-python-pipelines">
+  <Card title="Part 6: Python Pipelines" href="/getting-started/tutorial/part6-python-pipelines">
     Write Python pipelines using DuckDB and PyArrow for complex transformations. ~10 min
   </Card>
-  <Card title="Part 7: Triggers & Automation" href="/tutorial/part7-triggers">
+  <Card title="Part 7: Triggers & Automation" href="/getting-started/tutorial/part7-triggers">
     Automate pipeline execution with cron, webhooks, and event-driven triggers. ~15 min
   </Card>
-  <Card title="Part 8: Complete Platform" href="/tutorial/part8-complete-platform">
+  <Card title="Part 8: Complete Platform" href="/getting-started/tutorial/part8-complete-platform">
     Add a Gold layer, learn versioning and data retention. The full picture. ~15 min
   </Card>
 </Cards>

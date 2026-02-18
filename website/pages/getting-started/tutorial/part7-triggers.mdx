@@ -1,9 +1,10 @@
 import { Callout, Steps, Tabs } from 'nextra/components'
-import { Card, Cards } from '../../components/cards'
+import { Card, Cards } from '@/components/cards'
+import { Mermaid } from '@/components/mermaid'
 
 # Part 7: Triggers & Automation ⚡
 
-**Time:** ~15 minutes | **Prerequisites:** [Part 6](/tutorial/part6-python-pipelines) completed (Python pipeline running)
+**Time:** ~15 minutes | **Prerequisites:** [Part 6](/getting-started/tutorial/part6-python-pipelines) completed (Python pipeline running)
 
 Up to now, you have been running every pipeline manually — click Run, wait, repeat. That
 works for development, but a real data platform needs automation. RAT's trigger system
@@ -320,18 +321,11 @@ rather than waiting for the next poll cycle.
 
 With what you have learned, you can build sophisticated automation chains:
 
-```
-CSV Upload → launch-data landing zone
-       │
-       ▼ (landing_zone_upload trigger)
-  bronze.mission_log
-       │
-       ▼ (pipeline_success trigger)
-  silver.enriched_launches
-       │
-       ▼ (pipeline_success trigger — you'll add this in Part 8)
-  gold.launch_summary
-```
+<Mermaid chart={`graph TD
+    A["CSV Upload to launch-data"] -->|"landing_zone_upload trigger"| B["bronze.mission_log"]
+    B -->|"pipeline_success trigger"| C["silver.enriched_launches"]
+    C -->|"pipeline_success trigger\n(added in Part 8)"| D["gold.launch_summary"]
+`} />
 
 One file upload cascades through the entire pipeline graph. Zero manual intervention.
 
@@ -363,7 +357,7 @@ a Gold layer, explore versioning, data retention, and the full lineage DAG.
 explore versioning, data retention, table documentation, and the query editor.
 
 <Cards num={1}>
-  <Card title="Part 8: Gold Layer & Complete Platform →" href="/tutorial/part8-complete-platform">
+  <Card title="Part 8: Gold Layer & Complete Platform →" href="/getting-started/tutorial/part8-complete-platform">
     Add a Gold layer, learn versioning and data retention. The full picture. ~15 min
   </Card>
 </Cards>
