@@ -2,7 +2,7 @@
 # Triggered by pushing a version tag (v*). Builds and publishes:
 #   - Docker images to GHCR (4 services, multi-arch)
 #   - TypeScript SDK to GitHub Packages (npm)
-#   - Python packages to PyPI (runner + query)
+#   - Python packages as GitHub Release assets (runner + query)
 #   - GitHub Release with changelog
 
 name: Release
@@ -14,7 +14,6 @@ on:
 permissions:
   contents: write
   packages: write
-  id-token: write
 
 jobs:
   # ── Extract version from tag ─────────────────────────────────
@@ -23,10 +22,45 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      version_python: ${{ steps.version.outputs.version_python }}
+      version_npm: ${{ steps.version.outputs.version_npm }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
     steps:
-      - name: Extract version from tag
+      - name: Extract and normalize version from tag
         id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: |
+          RAW="${GITHUB_REF_NAME#v}"
+          echo "version=$RAW" >> "$GITHUB_OUTPUT"
+
+          # Detect pre-release: 0.1.0-alpha, 0.1.0-alpha.1, 0.1.0-beta.2, 0.1.0-rc.3
+          if [[ "$RAW" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-([a-z]+)(\.([0-9]+))?)?$ ]]; then
+            BASE="${BASH_REMATCH[1]}"
+            PRE_LABEL="${BASH_REMATCH[3]}"
+            PRE_NUM="${BASH_REMATCH[5]:-0}"
+
+            if [ -z "$PRE_LABEL" ]; then
+              # Stable release: 1.0.0
+              echo "version_python=$BASE" >> "$GITHUB_OUTPUT"
+              echo "version_npm=$BASE" >> "$GITHUB_OUTPUT"
+              echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            else
+              # Pre-release — convert to ecosystem formats
+              # PEP 440: alpha→a, beta→b, rc→rc
+              case "$PRE_LABEL" in
+                alpha) PY_PRE="a" ;;
+                beta)  PY_PRE="b" ;;
+                rc)    PY_PRE="rc" ;;
+                *)     PY_PRE="$PRE_LABEL" ;;
+              esac
+              echo "version_python=${BASE}${PY_PRE}${PRE_NUM}" >> "$GITHUB_OUTPUT"
+              # npm semver: ensure .N suffix
+              echo "version_npm=${BASE}-${PRE_LABEL}.${PRE_NUM}" >> "$GITHUB_OUTPUT"
+              echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "::error::Tag '${GITHUB_REF_NAME}' does not match expected version format"
+            exit 1
+          fi
 
   # ── Docker Images → GHCR ────────────────────────────────────
   docker-images:
@@ -72,7 +106,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ needs.meta.outputs.is_prerelease == 'false' }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -111,16 +145,16 @@ jobs:
         run: npm run build
 
       - name: Set version
-        run: npm version ${{ needs.meta.outputs.version }} --no-git-tag-version
+        run: npm version ${{ needs.meta.outputs.version_npm }} --no-git-tag-version
 
       - name: Publish
-        run: npm publish
+        run: npm publish --tag ${{ needs.meta.outputs.is_prerelease == 'true' && 'next' || 'latest' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ── Python Packages → PyPI ──────────────────────────────────
-  publish-python:
-    name: Publish Python — ${{ matrix.package }}
+  # ── Python Packages → GitHub Release assets ─────────────────
+  build-python:
+    name: Build Python — ${{ matrix.package }}
     needs: meta
     runs-on: ubuntu-latest
     strategy:
@@ -141,32 +175,41 @@ jobs:
           python-version: "3.12"
 
       - name: Install build tools
-        run: pip install --no-cache-dir build twine
+        run: pip install --no-cache-dir build
 
       - name: Set version
-        run: sed -i "s/version = \".*\"/version = \"${{ needs.meta.outputs.version }}\"/" pyproject.toml
+        run: sed -i "s/version = \".*\"/version = \"${{ needs.meta.outputs.version_python }}\"/" pyproject.toml
 
       - name: Build package
         run: python -m build
 
-      - name: Publish to PyPI
-        run: twine upload dist/*
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-${{ matrix.package }}
+          path: ${{ matrix.directory }}/dist/*
 
   # ── GitHub Release ───────────────────────────────────────────
   github-release:
     name: GitHub Release
-    needs: [meta, docker-images, publish-ts-sdk]
+    needs: [meta, docker-images, publish-ts-sdk, build-python]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download Python artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: python-*
+          merge-multiple: true
+          path: dist/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          prerelease: ${{ needs.meta.outputs.is_prerelease == 'true' }}
+          files: dist/*
           body: |
             ## 🐀 RAT v${{ needs.meta.outputs.version }}
 
@@ -180,13 +223,13 @@ jobs:
 
             ### TypeScript SDK
             ```bash
-            npm install @squat-collective/rat-client@${{ needs.meta.outputs.version }}
+            npm install @squat-collective/rat-client@${{ needs.meta.outputs.version_npm }}
             ```
 
             ### Python Packages
             ```bash
-            pip install rat-runner==${{ needs.meta.outputs.version }}
-            pip install rat-query==${{ needs.meta.outputs.version }}
+            pip install "https://github.com/squat-collective/rat/releases/download/${{ github.ref_name }}/rat_runner-${{ needs.meta.outputs.version_python }}-py3-none-any.whl"
+            pip install "https://github.com/squat-collective/rat/releases/download/${{ github.ref_name }}/rat_query-${{ needs.meta.outputs.version_python }}-py3-none-any.whl"
             ```
 
             ### Quick Install

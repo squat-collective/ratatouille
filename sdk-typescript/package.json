@@ -1,6 +1,6 @@
 {
   "name": "@squat-collective/rat-client",
-  "version": "2.0.0",
+  "version": "0.1.0-alpha.1",
   "description": "TypeScript client SDK for the RAT data platform API",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -21,7 +21,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/squat-collective/ratatouille.git",
+    "url": "https://github.com/squat-collective/rat.git",
     "directory": "sdk-typescript"
   },
   "scripts": {

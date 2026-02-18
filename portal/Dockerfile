@@ -24,7 +24,7 @@ RUN npm run build
 FROM node:20-alpine AS runner
 LABEL org.opencontainers.image.title="rat-portal"
 LABEL org.opencontainers.image.description="RAT portal (Next.js web IDE)"
-LABEL org.opencontainers.image.source="https://github.com/squat-collective/ratatouille"
+LABEL org.opencontainers.image.source="https://github.com/squat-collective/rat"
 LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
 LABEL org.opencontainers.image.vendor="RAT Data"
 WORKDIR /app

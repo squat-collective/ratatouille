@@ -1,6 +1,6 @@
 [project]
 name = "rat-runner"
-version = "2.0.0.dev0"
+version = "0.1.0a1"
 description = "Pipeline execution engine for RAT data platform"
 requires-python = ">=3.12"
 dependencies = [

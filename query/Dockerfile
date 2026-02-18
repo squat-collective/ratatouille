@@ -10,7 +10,7 @@ RUN uv pip install --system --no-cache .
 FROM python:3.12-slim
 LABEL org.opencontainers.image.title="rat-query"
 LABEL org.opencontainers.image.description="RAT query service (DuckDB read-only sidecar)"
-LABEL org.opencontainers.image.source="https://github.com/squat-collective/ratatouille"
+LABEL org.opencontainers.image.source="https://github.com/squat-collective/rat"
 LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
 LABEL org.opencontainers.image.vendor="RAT Data"
 RUN useradd --create-home query
