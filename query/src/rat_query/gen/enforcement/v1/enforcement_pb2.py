@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n enforcement/v1/enforcement.proto\x12\x1aratatouille.enforcement.v1\"\x89\x01\n\x10\x43\x61nAccessRequest\x12\x17\n\x07user_id\x18\x01 \x01(\tR\x06userId\x12#\n\rresource_type\x18\x02 \x01(\tR\x0cresourceType\x12\x1f\n\x0bresource_id\x18\x03 \x01(\tR\nresourceId\x12\x16\n\x06\x61\x63tion\x18\x04 \x01(\tR\x06\x61\x63tion\"E\n\x11\x43\x61nAccessResponse\x12\x18\n\x07\x61llowed\x18\x01 \x01(\x08R\x07\x61llowed\x12\x16\n\x06reason\x18\x02 \x01(\tR\x06reason\"N\n\x15GetCredentialsRequest\x12\x17\n\x07user_id\x18\x01 \x01(\tR\x06userId\x12\x1c\n\tnamespace\x18\x02 \x01(\tR\tnamespace\"\xa4\x01\n\x16GetCredentialsResponse\x12\x1d\n\naccess_key\x18\x01 \x01(\tR\taccessKey\x12\"\n\nsecret_key\x18\x02 \x01(\tB\x03\x80\x01\x01R\tsecretKey\x12(\n\rsession_token\x18\x03 \x01(\tB\x03\x80\x01\x01R\x0csessionToken\x12\x1d\n\nexpires_at\x18\x04 \x01(\x03R\texpiresAt2\xf7\x01\n\x12\x45nforcementService\x12h\n\tCanAccess\x12,.ratatouille.enforcement.v1.CanAccessRequest\x1a-.ratatouille.enforcement.v1.CanAccessResponse\x12w\n\x0eGetCredentials\x12\x31.ratatouille.enforcement.v1.GetCredentialsRequest\x1a\x32.ratatouille.enforcement.v1.GetCredentialsResponseB\xff\x01\n\x1e\x63om.ratatouille.enforcement.v1B\x10\x45nforcementProtoP\x01ZAgithub.com/rat-data/rat/platform/gen/enforcement/v1;enforcementv1\xa2\x02\x03REX\xaa\x02\x1aRatatouille.Enforcement.V1\xca\x02\x1aRatatouille\\Enforcement\\V1\xe2\x02&Ratatouille\\Enforcement\\V1\\GPBMetadata\xea\x02\x1cRatatouille::Enforcement::V1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n enforcement/v1/enforcement.proto\x12\x1aratatouille.enforcement.v1\"\xb9\x01\n\x10\x43\x61nAccessRequest\x12\x17\n\x07user_id\x18\x01 \x01(\tR\x06userId\x12#\n\rresource_type\x18\x02 \x01(\tR\x0cresourceType\x12\x1f\n\x0bresource_id\x18\x03 \x01(\tR\nresourceId\x12\x16\n\x06\x61\x63tion\x18\x04 \x01(\tR\x06\x61\x63tion\x12\x1a\n\x08resource\x18\x05 \x01(\tR\x08resource\x12\x12\n\x04verb\x18\x06 \x01(\tR\x04verb\"E\n\x11\x43\x61nAccessResponse\x12\x18\n\x07\x61llowed\x18\x01 \x01(\x08R\x07\x61llowed\x12\x16\n\x06reason\x18\x02 \x01(\tR\x06reason\"N\n\x15GetCredentialsRequest\x12\x17\n\x07user_id\x18\x01 \x01(\tR\x06userId\x12\x1c\n\tnamespace\x18\x02 \x01(\tR\tnamespace\"\xa4\x01\n\x16GetCredentialsResponse\x12\x1d\n\naccess_key\x18\x01 \x01(\tR\taccessKey\x12\"\n\nsecret_key\x18\x02 \x01(\tB\x03\x80\x01\x01R\tsecretKey\x12(\n\rsession_token\x18\x03 \x01(\tB\x03\x80\x01\x01R\x0csessionToken\x12\x1d\n\nexpires_at\x18\x04 \x01(\x03R\texpiresAt2\xf7\x01\n\x12\x45nforcementService\x12h\n\tCanAccess\x12,.ratatouille.enforcement.v1.CanAccessRequest\x1a-.ratatouille.enforcement.v1.CanAccessResponse\x12w\n\x0eGetCredentials\x12\x31.ratatouille.enforcement.v1.GetCredentialsRequest\x1a\x32.ratatouille.enforcement.v1.GetCredentialsResponseB\xff\x01\n\x1e\x63om.ratatouille.enforcement.v1B\x10\x45nforcementProtoP\x01ZAgithub.com/rat-data/rat/platform/gen/enforcement/v1;enforcementv1\xa2\x02\x03REX\xaa\x02\x1aRatatouille.Enforcement.V1\xca\x02\x1aRatatouille\\Enforcement\\V1\xe2\x02&Ratatouille\\Enforcement\\V1\\GPBMetadata\xea\x02\x1cRatatouille::Enforcement::V1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -37,13 +37,13 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_GETCREDENTIALSRESPONSE'].fields_by_name['session_token']._loaded_options = None
   _globals['_GETCREDENTIALSRESPONSE'].fields_by_name['session_token']._serialized_options = b'\200\001\001'
   _globals['_CANACCESSREQUEST']._serialized_start=65
-  _globals['_CANACCESSREQUEST']._serialized_end=202
-  _globals['_CANACCESSRESPONSE']._serialized_start=204
-  _globals['_CANACCESSRESPONSE']._serialized_end=273
-  _globals['_GETCREDENTIALSREQUEST']._serialized_start=275
-  _globals['_GETCREDENTIALSREQUEST']._serialized_end=353
-  _globals['_GETCREDENTIALSRESPONSE']._serialized_start=356
-  _globals['_GETCREDENTIALSRESPONSE']._serialized_end=520
-  _globals['_ENFORCEMENTSERVICE']._serialized_start=523
-  _globals['_ENFORCEMENTSERVICE']._serialized_end=770
+  _globals['_CANACCESSREQUEST']._serialized_end=250
+  _globals['_CANACCESSRESPONSE']._serialized_start=252
+  _globals['_CANACCESSRESPONSE']._serialized_end=321
+  _globals['_GETCREDENTIALSREQUEST']._serialized_start=323
+  _globals['_GETCREDENTIALSREQUEST']._serialized_end=401
+  _globals['_GETCREDENTIALSRESPONSE']._serialized_start=404
+  _globals['_GETCREDENTIALSRESPONSE']._serialized_end=568
+  _globals['_ENFORCEMENTSERVICE']._serialized_start=571
+  _globals['_ENFORCEMENTSERVICE']._serialized_end=818
 # @@protoc_insertion_point(module_scope)

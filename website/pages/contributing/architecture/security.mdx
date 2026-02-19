@@ -31,6 +31,7 @@ flowchart TD
 
     subgraph Authz ["Authorization Layer"]
         Enforce["Enforcement Plugin"]
+        PermEngine["Permission Engine"]
         Audit["Audit Logging"]
     end
 
@@ -114,6 +115,63 @@ When no auth plugin is configured and no API key is set, all requests pass throu
 2. Else if RAT_API_KEY env var is set   → API Key Auth
 3. Else                                 → Noop Auth (pass-through)
 ```
+
+---
+
+## Authorization (Permission Engine)
+
+Once a user is authenticated, the authorization layer determines what they can access. RAT uses a layered authorization model:
+
+### Access Resolution Order
+
+```
+1. No user in context (Community)    → ALLOW (NoopAuthorizer)
+2. Owner of resource                 → ALLOW (checked locally in ratd Postgres)
+3. Permission engine (Pro, v2.12+)   → expand principals → expand verbs → build candidate paths → single SQL query
+4. Legacy enforcement fallback       → check sharing grants (v2.7 compat)
+5. Default                           → DENY
+```
+
+### Permission Engine (v2.12+)
+
+The Pro permission engine uses path-based resource grants via the `PermissionService` proto. When evaluating a `CheckAccess` request, it:
+
+1. **Expands principals**: user ID + resolved engine groups (nested, depth limit 5) + JWT groups from token
+2. **Expands verbs**: BFS on the global reverse verb implication graph (e.g., checking `read` matches grants for `admin`, `write`, `execute`, or `publish` since they all imply `read`)
+3. **Builds candidate paths**: generates wildcard patterns from the resource path (e.g., `gold/pipeline/bronze/orders` → `gold/pipeline/bronze/*` → `gold/pipeline/*` → `gold/*` → `*`)
+4. **Single SQL query**: `SELECT 1 FROM grants WHERE resource IN (candidates) AND verb IN (expanded) AND principal matches`
+5. **Default: DENY**
+
+### Verb Implication Graph
+
+Verbs are not numeric levels. They form a global directed implication graph:
+
+```
+admin ──► write ──► read
+  │                  ▲
+  ├──► execute ──────┘
+  ├──► publish ──────┘
+  └──► delete
+```
+
+This means `execute` implies `read` but **not** `write`, and `publish` implies `read` but **not** `write` — more precise than a linear hierarchy. The engine accepts arbitrary verb strings; plugins can register custom verbs via `RegisterVerb`.
+
+### Resource Hierarchy via Paths
+
+Resources are slash-delimited paths. Hierarchy is implicit — no explicit registration needed. Grants use **explicit wildcards** for cascading:
+
+```
+Grant: (bob, admin, gold/*)
+  ├── gold/pipeline/revenue    → bob has admin (via wildcard)
+  ├── gold/pipeline/orders     → bob has admin (via wildcard)
+  └── gold/table/customers     → bob has admin (via wildcard)
+
+Note: gold/* does NOT match gold itself — only children.
+```
+
+<Callout type="info">
+The permission engine is a Pro feature. Community Edition uses `NoopAuthorizer` — all requests are allowed for the single user. See [ADR-017](/docs/adr/017-permission-engine.md) for the full design rationale.
+</Callout>
 
 ---
 

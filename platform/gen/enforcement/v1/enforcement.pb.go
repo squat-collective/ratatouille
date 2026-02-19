@@ -22,12 +22,17 @@ const (
 )
 
 // CanAccessRequest checks fine-grained access control for a user on a resource.
+// Supports both legacy (resource_type + resource_id + action) and new (resource + verb) fields.
+// If resource (5) is set, the engine uses path-based matching directly.
+// Otherwise, it constructs a best-effort path from resource_type/resource_id.
 type CanAccessRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`                   // user ID to check access for
-	ResourceType  string                 `protobuf:"bytes,2,opt,name=resource_type,json=resourceType,proto3" json:"resource_type,omitempty"` // type of resource: "pipeline", "namespace", "table"
-	ResourceId    string                 `protobuf:"bytes,3,opt,name=resource_id,json=resourceId,proto3" json:"resource_id,omitempty"`       // unique identifier of the resource
-	Action        string                 `protobuf:"bytes,4,opt,name=action,proto3" json:"action,omitempty"`                                 // action to check: "read", "write", "delete", "admin"
+	ResourceType  string                 `protobuf:"bytes,2,opt,name=resource_type,json=resourceType,proto3" json:"resource_type,omitempty"` // (legacy) type of resource: "pipeline", "namespace", "table"
+	ResourceId    string                 `protobuf:"bytes,3,opt,name=resource_id,json=resourceId,proto3" json:"resource_id,omitempty"`       // (legacy) unique identifier of the resource
+	Action        string                 `protobuf:"bytes,4,opt,name=action,proto3" json:"action,omitempty"`                                 // (legacy) action to check: "read", "write", "delete", "admin"
+	Resource      string                 `protobuf:"bytes,5,opt,name=resource,proto3" json:"resource,omitempty"`                             // (v2) resource path (e.g., "gold/pipeline/bronze/orders")
+	Verb          string                 `protobuf:"bytes,6,opt,name=verb,proto3" json:"verb,omitempty"`                                     // (v2) verb to check (e.g., "read", "write", "admin")
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -86,6 +91,20 @@ func (x *CanAccessRequest) GetResourceId() string {
 func (x *CanAccessRequest) GetAction() string {
 	if x != nil {
 		return x.Action
+	}
+	return ""
+}
+
+func (x *CanAccessRequest) GetResource() string {
+	if x != nil {
+		return x.Resource
+	}
+	return ""
+}
+
+func (x *CanAccessRequest) GetVerb() string {
+	if x != nil {
+		return x.Verb
 	}
 	return ""
 }
@@ -269,13 +288,15 @@ var File_enforcement_v1_enforcement_proto protoreflect.FileDescriptor
 
 const file_enforcement_v1_enforcement_proto_rawDesc = "" +
 	"\n" +
-	" enforcement/v1/enforcement.proto\x12\x1aratatouille.enforcement.v1\"\x89\x01\n" +
+	" enforcement/v1/enforcement.proto\x12\x1aratatouille.enforcement.v1\"\xb9\x01\n" +
 	"\x10CanAccessRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12#\n" +
 	"\rresource_type\x18\x02 \x01(\tR\fresourceType\x12\x1f\n" +
 	"\vresource_id\x18\x03 \x01(\tR\n" +
 	"resourceId\x12\x16\n" +
-	"\x06action\x18\x04 \x01(\tR\x06action\"E\n" +
+	"\x06action\x18\x04 \x01(\tR\x06action\x12\x1a\n" +
+	"\bresource\x18\x05 \x01(\tR\bresource\x12\x12\n" +
+	"\x04verb\x18\x06 \x01(\tR\x04verb\"E\n" +
 	"\x11CanAccessResponse\x12\x18\n" +
 	"\aallowed\x18\x01 \x01(\bR\aallowed\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\"N\n" +

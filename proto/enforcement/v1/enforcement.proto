@@ -18,11 +18,16 @@ service EnforcementService {
 }
 
 // CanAccessRequest checks fine-grained access control for a user on a resource.
+// Supports both legacy (resource_type + resource_id + action) and new (resource + verb) fields.
+// If resource (5) is set, the engine uses path-based matching directly.
+// Otherwise, it constructs a best-effort path from resource_type/resource_id.
 message CanAccessRequest {
   string user_id = 1;             // user ID to check access for
-  string resource_type = 2;       // type of resource: "pipeline", "namespace", "table"
-  string resource_id = 3;         // unique identifier of the resource
-  string action = 4;              // action to check: "read", "write", "delete", "admin"
+  string resource_type = 2;       // (legacy) type of resource: "pipeline", "namespace", "table"
+  string resource_id = 3;         // (legacy) unique identifier of the resource
+  string action = 4;              // (legacy) action to check: "read", "write", "delete", "admin"
+  string resource = 5;            // (v2) resource path (e.g., "gold/pipeline/bronze/orders")
+  string verb = 6;                // (v2) verb to check (e.g., "read", "write", "admin")
 }
 
 // CanAccessResponse indicates whether the user is permitted to perform the action.

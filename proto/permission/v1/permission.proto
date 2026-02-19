@@ -1,0 +1,393 @@
+syntax = "proto3";
+package ratatouille.permission.v1;
+
+option go_package = "github.com/rat-data/rat/platform/gen/permission/v1;permissionv1";
+
+import "google/protobuf/timestamp.proto";
+
+// Field reservation policy: see common/v1/common.proto.
+// When removing fields, always add `reserved` for both the number and name.
+
+// PermissionService is a path-based permission engine.
+// Grant tuple: (principal_type, principal_id, resource, verb).
+// Resource paths encode hierarchy implicitly (e.g., "gold/pipeline/bronze/orders").
+// Wildcard matching: "gold/*" covers children, "gold" covers only itself.
+//
+// Implemented by the ACL plugin container.
+// Called by ratd for fine-grained access control.
+service PermissionService {
+  // ── Verbs ───────────────────────────────────────────────────────
+
+  // Register a verb with its implication graph.
+  // Idempotent — re-registering updates implications.
+  rpc RegisterVerb(RegisterVerbRequest) returns (RegisterVerbResponse);
+
+  // List all registered verbs and their implications.
+  rpc ListVerbs(ListVerbsRequest) returns (ListVerbsResponse);
+
+  // ── Resources ───────────────────────────────────────────────────
+
+  // Remove a resource path and its grants.
+  // If cascade is true, also removes grants on child paths (resource/*).
+  rpc RemoveResource(RemoveResourceRequest) returns (RemoveResourceResponse);
+
+  // ── Grants ──────────────────────────────────────────────────────
+
+  // Create a grant: (principal, verb, resource).
+  rpc CreateGrant(CreateGrantRequest) returns (CreateGrantResponse);
+
+  // Revoke a previously created grant.
+  rpc RevokeGrant(RevokeGrantRequest) returns (RevokeGrantResponse);
+
+  // List grants, optionally filtered by resource and/or principal.
+  rpc ListGrants(ListGrantsRequest) returns (ListGrantsResponse);
+
+  // ── Access Checks ───────────────────────────────────────────────
+
+  // Check if a user can perform a verb on a resource.
+  // Evaluates: direct grants, group memberships, verb implications,
+  // and wildcard path matching. Default: DENY.
+  rpc CheckAccess(CheckAccessRequest) returns (CheckAccessResponse);
+
+  // Check access for multiple (resource, verb) pairs in one call.
+  rpc BatchCheckAccess(BatchCheckAccessRequest) returns (BatchCheckAccessResponse);
+
+  // ── Introspection ───────────────────────────────────────────────
+
+  // List all effective access on a resource (who can do what).
+  rpc ListResourceAccess(ListResourceAccessRequest) returns (ListResourceAccessResponse);
+
+  // List all resources a principal can access (what can I do).
+  rpc ListPrincipalAccess(ListPrincipalAccessRequest) returns (ListPrincipalAccessResponse);
+
+  // ── Groups ──────────────────────────────────────────────────────
+
+  // Create an engine-managed group.
+  rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
+
+  // Delete an engine-managed group and all its memberships.
+  rpc DeleteGroup(DeleteGroupRequest) returns (DeleteGroupResponse);
+
+  // Add a member (user or nested group) to a group.
+  rpc AddGroupMember(AddGroupMemberRequest) returns (AddGroupMemberResponse);
+
+  // Remove a member from a group.
+  rpc RemoveGroupMember(RemoveGroupMemberRequest) returns (RemoveGroupMemberResponse);
+
+  // List members of a group.
+  rpc ListGroupMembers(ListGroupMembersRequest) returns (ListGroupMembersResponse);
+
+  // List all groups a user belongs to (engine-managed only).
+  rpc ListUserGroups(ListUserGroupsRequest) returns (ListUserGroupsResponse);
+
+  // ── External Groups ─────────────────────────────────────────────
+
+  // Sync group mappings from an external provider (e.g., Keycloak).
+  rpc SyncExternalGroups(SyncExternalGroupsRequest) returns (SyncExternalGroupsResponse);
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+// PrincipalType identifies the kind of principal in a grant or group membership.
+enum PrincipalType {
+  PRINCIPAL_TYPE_UNSPECIFIED = 0;
+  PRINCIPAL_TYPE_USER = 1;
+  PRINCIPAL_TYPE_GROUP = 2;
+  PRINCIPAL_TYPE_ROLE = 3;
+}
+
+// ============================================================================
+// Shared Types
+// ============================================================================
+
+// VerbDefinition defines a verb and which other verbs it implies.
+// For example, "admin" implies ["write", "read", "execute", "publish", "delete"].
+message VerbDefinition {
+  string name = 1;                     // verb name (e.g., "admin", "write", "read", "publish")
+  repeated string implies = 2;         // verbs implied by this one (transitive)
+  string description = 3;             // optional human-readable description
+}
+
+// Grant represents a relation tuple: (principal, verb, resource).
+message Grant {
+  string grant_id = 1;                 // unique identifier (UUID)
+  PrincipalType principal_type = 2;    // type of grantee
+  string principal_id = 3;             // ID of the grantee (user ID, group ID, or role name)
+  reserved 4, 5, 6;                    // was: resource_type, resource_id, action (v1)
+  reserved "resource_type", "resource_id", "action";
+  string granted_by = 7;               // user ID of the grantor
+  google.protobuf.Timestamp created_at = 8; // when the grant was created
+  string resource = 9;                 // resource path (e.g., "gold/pipeline/bronze/orders")
+  string verb = 10;                    // granted verb (e.g., "read", "write", "admin")
+}
+
+// EffectiveAccess describes a principal's effective access on a resource,
+// including the source of the grant (direct, wildcard, or via group).
+message EffectiveAccess {
+  PrincipalType principal_type = 1;    // type of principal
+  string principal_id = 2;             // ID of the principal
+  reserved 3;                          // was: action (v1)
+  reserved "action";
+  string source = 4;                   // how access was derived: "direct", "wildcard:<pattern>", "group:<group_id>"
+  string resource = 5;                 // resource path
+  string verb = 6;                     // effective verb
+}
+
+// GroupInfo describes an engine-managed group.
+message GroupInfo {
+  string group_id = 1;                 // unique identifier (UUID)
+  string name = 2;                     // human-readable group name
+  string description = 3;              // optional description
+  google.protobuf.Timestamp created_at = 4; // when the group was created
+}
+
+// GroupMember describes a member of a group.
+message GroupMember {
+  PrincipalType member_type = 1;       // USER or GROUP (for nesting)
+  string member_id = 2;               // user ID or nested group ID
+  google.protobuf.Timestamp added_at = 3; // when the member was added
+}
+
+// ============================================================================
+// Verb RPCs
+// ============================================================================
+
+// RegisterVerbRequest registers or updates a verb with its implications.
+message RegisterVerbRequest {
+  string name = 1;                     // verb name (e.g., "publish", "deploy")
+  repeated string implies = 2;         // verbs implied by this one
+  string description = 3;             // optional description
+}
+
+// RegisterVerbResponse confirms the registration.
+message RegisterVerbResponse {}
+
+// ListVerbsRequest requests all registered verbs.
+message ListVerbsRequest {}
+
+// ListVerbsResponse returns all registered verbs.
+message ListVerbsResponse {
+  repeated VerbDefinition verbs = 1;   // all registered verbs
+}
+
+// ============================================================================
+// Resource RPCs
+// ============================================================================
+
+// RemoveResourceRequest removes a resource path and its grants.
+message RemoveResourceRequest {
+  reserved 1, 2;                       // was: resource_type, resource_id (v1)
+  reserved "resource_type", "resource_id";
+  bool cascade = 3;                    // if true, also remove grants on child paths (resource/*)
+  string resource = 4;                 // resource path to remove
+}
+
+// RemoveResourceResponse confirms the removal.
+message RemoveResourceResponse {
+  int32 resources_removed = 1;         // number of resource paths affected
+  int32 grants_removed = 2;           // number of grants removed
+}
+
+// ============================================================================
+// Grant RPCs
+// ============================================================================
+
+// CreateGrantRequest creates a new grant.
+message CreateGrantRequest {
+  PrincipalType principal_type = 1;    // type of grantee
+  string principal_id = 2;            // ID of the grantee
+  reserved 3, 4, 5;                    // was: resource_type, resource_id, action (v1)
+  reserved "resource_type", "resource_id", "action";
+  string granted_by = 6;              // user ID of the grantor
+  string resource = 7;                 // resource path (e.g., "gold/pipeline/bronze/orders" or "gold/*")
+  string verb = 8;                     // verb to grant (e.g., "read", "write", "admin")
+}
+
+// CreateGrantResponse returns the created grant.
+message CreateGrantResponse {
+  Grant grant = 1;                     // the created grant
+}
+
+// RevokeGrantRequest revokes a grant by ID.
+message RevokeGrantRequest {
+  string grant_id = 1;                // ID of the grant to revoke
+}
+
+// RevokeGrantResponse confirms the revocation.
+message RevokeGrantResponse {
+  bool revoked = 1;                    // true if the grant was found and revoked
+}
+
+// ListGrantsRequest lists grants with optional filters.
+message ListGrantsRequest {
+  reserved 1, 2;                       // was: resource_type, resource_id (v1)
+  reserved "resource_type", "resource_id";
+  PrincipalType principal_type = 3;    // optional: filter by principal type
+  string principal_id = 4;            // optional: filter by principal ID
+  string resource = 5;                 // optional: filter by resource path (exact match)
+}
+
+// ListGrantsResponse returns matching grants.
+message ListGrantsResponse {
+  repeated Grant grants = 1;           // matching grants
+}
+
+// ============================================================================
+// Access Check RPCs
+// ============================================================================
+
+// CheckAccessRequest checks if a user can perform a verb on a resource.
+message CheckAccessRequest {
+  string user_id = 1;                 // user to check
+  repeated string user_groups = 2;    // groups from JWT/external provider (always fresh)
+  reserved 3, 4, 5;                    // was: resource_type, resource_id, action (v1)
+  reserved "resource_type", "resource_id", "action";
+  string resource = 6;                 // resource path to check
+  string verb = 7;                     // verb to check
+}
+
+// CheckAccessResponse indicates whether access is allowed.
+message CheckAccessResponse {
+  bool allowed = 1;                    // true if the user is permitted
+  string reason = 2;                   // empty when allowed; denial reason otherwise
+}
+
+// BatchCheckAccessRequest checks multiple resource/verb pairs for one user.
+message BatchCheckAccessRequest {
+  string user_id = 1;                 // user to check
+  repeated string user_groups = 2;    // groups from JWT/external provider
+  repeated AccessCheck checks = 3;    // list of checks to perform
+}
+
+// AccessCheck is a single check within a batch.
+message AccessCheck {
+  reserved 1, 2, 3;                    // was: resource_type, resource_id, action (v1)
+  reserved "resource_type", "resource_id", "action";
+  string resource = 4;                 // resource path to check
+  string verb = 5;                     // verb to check
+}
+
+// BatchCheckAccessResponse returns results for each check.
+message BatchCheckAccessResponse {
+  repeated CheckAccessResponse results = 1; // one result per check, in order
+}
+
+// ============================================================================
+// Introspection RPCs
+// ============================================================================
+
+// ListResourceAccessRequest lists all effective access on a resource.
+message ListResourceAccessRequest {
+  reserved 1, 2;                       // was: resource_type, resource_id (v1)
+  reserved "resource_type", "resource_id";
+  string resource = 3;                 // resource path
+}
+
+// ListResourceAccessResponse returns all effective access entries.
+message ListResourceAccessResponse {
+  repeated EffectiveAccess access = 1; // effective access entries
+}
+
+// ListPrincipalAccessRequest lists all resources a user can access.
+message ListPrincipalAccessRequest {
+  string user_id = 1;                 // user to query
+  repeated string user_groups = 2;    // groups from JWT/external provider
+  reserved 3;                          // was: resource_type (v1)
+  reserved "resource_type";
+  string resource_prefix = 4;         // optional: filter by resource path prefix (e.g., "gold/")
+}
+
+// ListPrincipalAccessResponse returns all accessible resources.
+message ListPrincipalAccessResponse {
+  repeated EffectiveAccess access = 1; // effective access entries
+}
+
+// ============================================================================
+// Group RPCs
+// ============================================================================
+
+// CreateGroupRequest creates a new engine-managed group.
+message CreateGroupRequest {
+  string name = 1;                     // human-readable group name (unique)
+  string description = 2;             // optional description
+}
+
+// CreateGroupResponse returns the created group.
+message CreateGroupResponse {
+  GroupInfo group = 1;                 // the created group
+}
+
+// DeleteGroupRequest deletes a group and all its memberships and grants.
+message DeleteGroupRequest {
+  string group_id = 1;                // ID of the group to delete
+}
+
+// DeleteGroupResponse confirms deletion.
+message DeleteGroupResponse {
+  bool deleted = 1;                    // true if the group was found and deleted
+}
+
+// AddGroupMemberRequest adds a member to a group.
+message AddGroupMemberRequest {
+  string group_id = 1;                // ID of the group
+  PrincipalType member_type = 2;      // USER or GROUP (for nesting)
+  string member_id = 3;               // user ID or nested group ID
+}
+
+// AddGroupMemberResponse confirms the member was added.
+message AddGroupMemberResponse {}
+
+// RemoveGroupMemberRequest removes a member from a group.
+message RemoveGroupMemberRequest {
+  string group_id = 1;                // ID of the group
+  PrincipalType member_type = 2;      // USER or GROUP
+  string member_id = 3;               // user ID or nested group ID
+}
+
+// RemoveGroupMemberResponse confirms the member was removed.
+message RemoveGroupMemberResponse {
+  bool removed = 1;                    // true if the member was found and removed
+}
+
+// ListGroupMembersRequest lists members of a group.
+message ListGroupMembersRequest {
+  string group_id = 1;                // ID of the group
+}
+
+// ListGroupMembersResponse returns the group's members.
+message ListGroupMembersResponse {
+  repeated GroupMember members = 1;    // group members
+}
+
+// ListUserGroupsRequest lists engine-managed groups a user belongs to.
+message ListUserGroupsRequest {
+  string user_id = 1;                 // user to query
+}
+
+// ListUserGroupsResponse returns the user's groups.
+message ListUserGroupsResponse {
+  repeated GroupInfo groups = 1;       // groups the user belongs to
+}
+
+// ============================================================================
+// External Groups RPCs
+// ============================================================================
+
+// SyncExternalGroupsRequest syncs group mappings from an external provider.
+message SyncExternalGroupsRequest {
+  string provider = 1;                // provider name (e.g., "keycloak")
+  repeated ExternalGroupMapping mappings = 2; // group mappings to sync
+}
+
+// ExternalGroupMapping maps an external group to an engine group.
+message ExternalGroupMapping {
+  string external_group_id = 1;       // group ID in the external provider
+  string engine_group_id = 2;         // corresponding engine-managed group ID
+}
+
+// SyncExternalGroupsResponse confirms the sync.
+message SyncExternalGroupsResponse {
+  int32 synced = 1;                    // number of mappings synced
+}

@@ -495,7 +495,8 @@ proto/
 ├── auth/v1/auth.proto             # auth plugin — Authenticate, Authorize
 ├── cloud/v1/cloud.proto           # cloud plugin — GetCredentials
 ├── sharing/v1/sharing.proto       # sharing plugin — ShareResource, RevokeAccess, ListAccess, TransferOwnership
-└── enforcement/v1/enforcement.proto  # enforcement plugin — CanAccess, GetCredentials
+├── enforcement/v1/enforcement.proto  # enforcement plugin — CanAccess, GetCredentials
+└── permission/v1/permission.proto # permission engine — CheckAccess, Grants, Groups, Hierarchy, Introspection (17 RPCs)
 ```
 
 ### Rules
@@ -719,7 +720,8 @@ docs/
 │   ├── 010-acl-plugin.md       # ACL sharing + enforcement plugin (v2.7)
 │   ├── 011-cloud-aws.md        # Cloud AWS plugin (v2.8)
 │   ├── 012-license-gating.md   # License gating for Pro plugins (v2.9)
-│   └── ...
+│   ├── ...
+│   └── 017-permission-engine.md # Generic permission engine — path-based grants, verb implications, wildcards (v2.12)
 └── migrations/                 # Breaking change migration guides
 ```
 

@@ -218,6 +218,7 @@ plugins:
 |------|-------------------|--------------------|
 | **Auth** | No-op (open access) | Keycloak OIDC (first), Cognito, Auth0 |
 | **Enforcement** | Allow-all (single user) | API-level (ratd checks ACLs), S3 IAM (STS per-user for AWS) |
+| **Permission** | Allow-all (single user) | Generic permission engine — relation tuples, action graphs, resource hierarchy, groups |
 | **Sharing** | Allow-all (single user) | Per-object ownership, ACLs, projects |
 | **RLS** | None | Row-Level Security (auto-generated from sharing grants) |
 | **Executor** | WarmPoolExecutor (single warm runner) | ContainerExecutor (on-demand), LambdaExecutor, K8sJobExecutor |
@@ -350,7 +351,8 @@ Community monorepo + separate Pro repo. Shared local dev folder.
 │   │   ├── cloud/v1/cloud.proto        # Cloud plugin
 │   │   ├── plugin/v1/plugin.proto      # Base plugin interface
 │   │   ├── sharing/v1/sharing.proto    # Sharing plugin
-│   │   └── enforcement/v1/enforcement.proto
+│   │   ├── enforcement/v1/enforcement.proto
+│   │   └── permission/v1/permission.proto  # Permission engine (17 RPCs)
 │   │
 │   ├── infra/                          # Docker compose, configs
 │   │   ├── docker-compose.yml          # Community: all 7 services
@@ -536,11 +538,11 @@ PROJECT marketing: [marketing.bronze.campaigns, marketing.gold.attribution, ecom
 
 ### Access Resolution
 
-1. Owner → full access (read, write, delete, share)
-2. Explicit share → granted access level (read or write)
-3. Role-based → `role:data-engineer` gets access to everything shared with that role
-4. Namespace membership → members can discover (not access) all objects in their namespace
-5. Community → no checks, single user owns everything
+1. No user in context (community) → **allow** (NoopAuthorizer)
+2. Owner of resource → **allow** (checked locally in ratd Postgres)
+3. Permission engine (v2.12+) → expand principals (user + groups + JWT roles) → expand actions (implication graph) → check direct grants → walk resource hierarchy → **allow** if match
+4. Legacy sharing fallback → granted access level (read or write)
+5. Default → **deny**
 
 ---
 
@@ -618,6 +620,7 @@ Write code (editor) → Run pipeline → Quality tests auto-run
 | **v2.9** | License gating + plugin distribution ✅ — RSA-256 signed JWT license keys, offline validation (no phone-home). Per-plugin entitlements via `plugins[]` claim. Single `RAT_LICENSE_KEY` env var. Plugins validate signature at startup, return `STATUS_NOT_SERVING` if unlicensed. ratd decodes JWT for display (no crypto deps in community). `pkg/license` shared Go module. `rat-license` CLI for key generation. Portal settings page with license status + expiry warning banner. ghcr.io distribution via GitHub Actions. ~10 license lib tests, ~3 CLI tests, ~4 handler tests per plugin, ~5 ratd decode tests. See ADR-012 |
 | **v2.10** | Landing zones ✅ — standalone file drop areas for raw data uploads. Postgres-tracked metadata (zone name, namespace, file registry). S3 path: `{namespace}/landing/{zoneName}/{filename}`. 8 REST endpoints (`/api/v1/landing-zones`). DuckDB preview via existing `/query` endpoint (`read_csv_auto`, `read_json_auto`, `read_parquet`). Multipart upload (32MB max). TS SDK `LandingResource` (8 methods). Portal: zone list page, zone detail with drag-and-drop upload, file preview modal. ~14 handler tests, ~8 store tests. See ADR-013 |
 | **v2.11** | Merge strategies ✅ — 6 write strategies (full_refresh, incremental, append_only, delete_insert, scd2, snapshot). Config merge: config.yaml base + annotation overrides per-field. 4 new Iceberg write functions (append, delete+insert, SCD2 history, partition snapshot). 4 new Jinja helpers (is_append_only, is_delete_insert, is_scd2, is_snapshot). Portal merge strategy settings card. SDK MergeStrategy + PipelineConfig types. ~30 new runner tests, full-stack typecheck. See ADR-014 |
+| **v2.12** | Generic permission engine ✅ — Zanzibar-inspired relation tuples replace flat permission levels. New `permission/v1/permission.proto` (17 RPCs): resource type registration, action implication graphs (BFS), resource hierarchy inheritance, engine-managed groups (nested, depth limit 5), JWT/external role support, batch access checks, introspection queries. 3 principal types (user/group/role). Backward-compat: legacy SharingService dual-writes, EnforcementService falls back. SQLite schema: 6 new tables. ~83 new tests. See ADR-017 |
 
 ---
 
@@ -679,6 +682,11 @@ Write code (editor) → Run pipeline → Quality tests auto-run
 | 52 | Merge strategies | **6 strategies** — full_refresh (overwrite), incremental (ANTI JOIN dedup), append_only, delete_insert, scd2 (history tracking), snapshot (partition-aware). Config merge: config.yaml + annotations overlay. See ADR-014 |
 | 53 | Config merge | **Annotations overlay config.yaml** — config.yaml is base, annotations override per-field. Enables both portal UI and power-user annotations. See ADR-014 |
 | 54 | Template helpers | **Strategy-aware** — `is_incremental()`, `is_append_only()`, `is_delete_insert()`, `is_scd2()`, `is_snapshot()` Jinja functions for strategy-specific SQL. |
+| 55 | Permission model | **Path-based grant tuples** — `(principal_type, principal_id, resource, verb)`. Resources are slash-delimited paths (e.g., `gold/pipeline/bronze/orders`). Explicit wildcards (`gold/*`) for cascading. See ADR-017 |
+| 56 | Verb implications | **Global directed graph** — BFS traversal. `admin` → `{write, read, execute, publish, delete}`, `write` → `{read}`, `execute` → `{read}`, `publish` → `{read}`. Not per-resource-type. |
+| 57 | Resource hierarchy | **Implicit via path structure** — no `RegisterResourceType` or `SetResourceParent`. `BuildCandidatePaths` generates wildcard patterns. Single SQL query for CheckAccess. |
+| 58 | Group model | **Dual-source** — engine-managed groups (nested, depth limit 5) + JWT/external roles (always fresh from token). Three principal types: USER, GROUP, ROLE. |
+| 59 | Permission backward compat | **Dual-write + fallback** — SharingService writes to both legacy and engine tables. EnforcementService checks engine first, falls back to legacy. `MigrateFromLegacy()` runs on startup. |
 
 ---
 

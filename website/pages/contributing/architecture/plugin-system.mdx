@@ -23,6 +23,7 @@ flowchart TB
         ExecPlugin["container-executor\n(isolated execution)"]
         SharePlugin["sharing-plugin\n(grant/revoke access)"]
         EnforcePlugin["enforcement-plugin\n(CanAccess checks)"]
+        PermPlugin["permission-engine\n(generic ACL)"]
         CloudPlugin["cloud-aws\n(credential vending)"]
     end
 
@@ -30,9 +31,11 @@ flowchart TB
     Loader -->|ConnectRPC| ExecPlugin
     Loader -->|ConnectRPC| SharePlugin
     Loader -->|ConnectRPC| EnforcePlugin
+    Loader -->|ConnectRPC| PermPlugin
     Loader -->|ConnectRPC| CloudPlugin
     Auth -->|Authenticate| AuthPlugin
     API -->|CanAccess| EnforcePlugin
+    API -->|CheckAccess| PermPlugin
     API -->|ShareResource| SharePlugin
     API -->|GetCredentials| CloudPlugin
 `} />
@@ -41,7 +44,7 @@ flowchart TB
 
 ## Plugin Slots
 
-RAT defines 5 plugin slots. Each slot has a specific interface (protobuf service definition) and responsibility:
+RAT defines 6 plugin slots. Each slot has a specific interface (protobuf service definition) and responsibility:
 
 | Slot | Proto Service | Responsibility | Community Default | Pro Implementation |
 |------|--------------|----------------|-------------------|--------------------|
@@ -49,6 +52,7 @@ RAT defines 5 plugin slots. Each slot has a specific interface (protobuf service
 | **executor** | `ExecutorService` | Execute pipelines in isolated containers | WarmPoolExecutor (built-in) | container-executor |
 | **sharing** | `SharingService` | Share resources between users | Noop (single-user) | sharing-plugin |
 | **enforcement** | `EnforcementService` | Check access permissions | Noop (allow all) | enforcement-plugin |
+| **permission** | `PermissionService` | Generic permission engine (path-based grants, groups, wildcards) | Noop (allow all) | acl-plugin |
 | **cloud** | `CloudService` | Vend cloud credentials (AWS, GCP) | Noop (not available) | cloud-aws |
 
 ### Base Plugin Interface
@@ -148,6 +152,63 @@ service EnforcementService {
 **Community behavior**: Always returns "allowed". No access control.
 
 **Pro behavior**: Checks ownership + share grants. Pipeline owners have full access. Shared users get read or write access based on their grant level. Admins bypass all checks.
+
+### Permission Plugin
+
+The permission plugin is a generic, extensible authorization engine using path-based resource grants. It supersedes the basic `admin > write > read` model from the enforcement plugin with a fully declarative system where hierarchy is implicit in resource paths.
+
+```protobuf filename="proto/permission/v1/permission.proto"
+service PermissionService {
+  // Verbs — global verb definition with implication graphs
+  rpc RegisterVerb(RegisterVerbRequest) returns (RegisterVerbResponse);
+  rpc ListVerbs(ListVerbsRequest) returns (ListVerbsResponse);
+
+  // Resources — remove grants for a resource path (with optional cascade)
+  rpc RemoveResource(RemoveResourceRequest) returns (RemoveResourceResponse);
+
+  // Grants — path-based tuples: (principal, verb, resource_path)
+  rpc CreateGrant(CreateGrantRequest) returns (CreateGrantResponse);
+  rpc RevokeGrant(RevokeGrantRequest) returns (RevokeGrantResponse);
+  rpc ListGrants(ListGrantsRequest) returns (ListGrantsResponse);
+
+  // Access checks — direct grants + verb implications + wildcard path matching
+  rpc CheckAccess(CheckAccessRequest) returns (CheckAccessResponse);
+  rpc BatchCheckAccess(BatchCheckAccessRequest) returns (BatchCheckAccessResponse);
+
+  // Introspection
+  rpc ListResourceAccess(ListResourceAccessRequest) returns (ListResourceAccessResponse);
+  rpc ListPrincipalAccess(ListPrincipalAccessRequest) returns (ListPrincipalAccessResponse);
+
+  // Engine-managed groups (nestable, depth limit 5)
+  rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
+  rpc DeleteGroup(DeleteGroupRequest) returns (DeleteGroupResponse);
+  rpc AddGroupMember(AddGroupMemberRequest) returns (AddGroupMemberResponse);
+  rpc RemoveGroupMember(RemoveGroupMemberRequest) returns (RemoveGroupMemberResponse);
+  rpc ListGroupMembers(ListGroupMembersRequest) returns (ListGroupMembersResponse);
+  rpc ListUserGroups(ListUserGroupsRequest) returns (ListUserGroupsResponse);
+
+  // External group sync (Keycloak, Cognito, etc.)
+  rpc SyncExternalGroups(SyncExternalGroupsRequest) returns (SyncExternalGroupsResponse);
+}
+```
+
+**Community behavior**: No permission engine. Single-user platform — all access allowed.
+
+**Pro behavior**: The ACL plugin implements `PermissionService` alongside the existing `SharingService` and `EnforcementService`. Key features:
+
+- **Path-based resources**: resources are slash-delimited paths (e.g., `gold/pipeline/bronze/orders`) — no explicit type registration needed
+- **Explicit wildcards**: `gold/*` grants access to all children, `*` is super admin — no surprise cascading
+- **Global verb implication graph**: `admin` implies `write`, `read`, `execute`, `publish`, `delete` — resolved via BFS. `publish` implies `read` but not `write` (devs can edit, only release managers publish)
+- **Extensible verbs**: `RegisterVerb` allows plugins to define custom verbs (e.g., `deploy`) with their own implications
+- **Three principal types**: `USER` (direct grants), `GROUP` (engine-managed, nestable up to depth 5), `ROLE` (JWT groups from external providers)
+- **Single SQL query**: `CheckAccess` resolves in one query — no recursive hierarchy walks
+- **Batch access checks**: evaluate multiple resource/verb pairs in one call (used for list filtering)
+- **Introspection**: "who has access to this pipeline?" and "what can this user access?"
+- **Backward compatible**: existing `SharingService`/`EnforcementService` RPCs continue to work via dual-write wrappers
+
+<Callout type="info">
+The permission engine is additive — it coexists with the existing sharing and enforcement plugins. Existing clients that use `SharingService.ShareResource` or `EnforcementService.CanAccess` continue to work. New clients should prefer `PermissionService` for its richer feature set (groups, wildcards, verb implications).
+</Callout>
 
 ### Cloud Plugin
 
@@ -317,6 +378,7 @@ The `/features` endpoint reports which plugin capabilities are active:
   "auth": true,
   "sharing": true,
   "enforcement": true,
+  "permission_engine": true,
   "container_executor": true,
   "cloud_aws": true,
   "pipeline_triggers": true,
@@ -337,6 +399,7 @@ The Community Edition is fully functional for single-user, self-hosted use. All 
 | Pipeline execution | Built-in WarmPoolExecutor | Container-isolated executor |
 | Authentication | Noop (no auth) or API key | Keycloak JWT (OIDC) |
 | Authorization | None (single user) | Role-based access control |
+| Permission engine | N/A | Path-based grants, verb implications, wildcards, groups |
 | Resource sharing | N/A | Grant/revoke per resource |
 | Cloud credentials | Local MinIO only | AWS STS credential vending |
 | Multi-user | No | Yes |

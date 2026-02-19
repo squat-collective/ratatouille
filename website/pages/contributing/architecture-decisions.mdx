@@ -179,6 +179,16 @@ RAT has the following accepted ADRs:
 | **011** | Cloud AWS Plugin | Accepted | Native AWS integration: S3 (not MinIO), IAM roles, CloudWatch logging, ECS deployment |
 | **012** | License Gating for Pro Plugins | Accepted | License key verification. Plugins check license validity on startup. Grace period for expired licenses |
 
+### Data Features and Permissions (v2.10 - v2.12)
+
+| ADR | Title | Status | Summary |
+|---|---|---|---|
+| **013** | Landing Zones | Accepted | Standalone file drop areas for raw data uploads. Postgres-tracked metadata, multipart upload, DuckDB preview |
+| **014** | Merge Strategies | Accepted | 6 write strategies (full_refresh, incremental, append_only, delete_insert, scd2, snapshot). Config merge with annotation overrides |
+| **015** | Data Retention | Accepted | Configurable retention limits: runs per pipeline, .meta.yaml history, S3 log TTL. Background reaper cleanup |
+| **016** | Portal Plugin UI | Accepted | Generic slot system for portal extensibility. `PluginSlot` component, `PluginRegistryProvider`, dynamic registry loading |
+| **017** | Generic Permission Engine | Accepted | Zanzibar-inspired relation tuples. Action implication graphs (BFS), resource hierarchy inheritance, engine-managed groups with nesting, JWT/external role support. Backward-compatible with existing sharing/enforcement |
+
 ---
 
 ## ADR Lifecycle
@@ -236,7 +246,12 @@ docs/adr/
 ├── 009-container-executor.md
 ├── 010-acl-plugin.md
 ├── 011-cloud-aws.md
-└── 012-license-gating.md
+├── 012-license-gating.md
+├── 013-landing-zones.md
+├── 014-merge-strategies.md
+├── 015-data-retention.md
+├── 016-portal-plugin-ui.md
+└── 017-permission-engine.md
 ```
 
 ---
@@ -247,5 +262,6 @@ ADRs are the best way to understand why RAT is built the way it is. When you are
 
 - **New to the project**: Read ADRs 001-006 to understand the foundational decisions
 - **Working on plugins**: Read ADRs 007-012 to understand the plugin architecture
+- **Working on permissions**: Read ADRs 010 and 017 to understand the ACL and permission engine evolution
 - **Proposing a change**: Check if an existing ADR covers the topic. If it does, your proposal should supersede it with a new ADR explaining why the decision changed
 - **Debugging unexpected behavior**: An ADR may explain why a component behaves a certain way (e.g., the 5-second polling interval in ADR-003)

@@ -10,6 +10,10 @@ Sharing endpoints manage access grants and ownership transfers for platform reso
 
 All sharing endpoints require authentication.
 
+<Callout type="info">
+**Permission Engine (v2.12+)**: RAT now includes a generic permission engine (`PermissionService`) that extends sharing with action implication graphs, resource hierarchy inheritance, group-based grants, and JWT role support. The sharing endpoints below continue to work via backward-compatible wrappers — grants created here are automatically mirrored to the new engine. For new integrations, consider using the permission engine's `CreateGrant`/`CheckAccess` RPCs directly for richer access control. See [Plugin System — Permission Plugin](/contributing/architecture/plugin-system#permission-plugin) for details.
+</Callout>
+
 ---
 
 ## Endpoints
@@ -32,6 +36,10 @@ All sharing endpoints require authentication.
 | `admin` | Full control including sharing with others and deletion |
 
 Permissions are cumulative: `admin` includes `write`, which includes `read`.
+
+<Callout type="info">
+The permission engine (v2.12+) extends this with additional actions like `execute` and `delete`, plus action implication graphs where `execute` implies `read` but not `write`. The three legacy permission levels (`read`, `write`, `admin`) continue to work as before through the sharing endpoints.
+</Callout>
 
 ---
 

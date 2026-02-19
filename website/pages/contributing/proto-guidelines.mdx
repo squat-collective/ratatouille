@@ -36,6 +36,7 @@ proto/
 ├── auth/v1/auth.proto                # Auth plugin (Authenticate, Authorize)
 ├── sharing/v1/sharing.proto          # Sharing plugin (4 RPCs)
 ├── enforcement/v1/enforcement.proto  # Enforcement plugin (2 RPCs)
+├── permission/v1/permission.proto   # Permission engine (15 RPCs)
 └── common/v1/common.proto            # Shared types (Timestamp, Layer, RunStatus)
 ```
 
@@ -68,7 +69,7 @@ package ratatouille.runner.v1;
 
 **Rules:**
 - Root namespace: `ratatouille`
-- Service name: `runner`, `query`, `plugin`, `auth`, `sharing`, `enforcement`, `common`
+- Service name: `runner`, `query`, `plugin`, `auth`, `sharing`, `enforcement`, `permission`, `common`
 - Version: `v1`, `v2`, etc.
 - Full pattern: `ratatouille.{service}.{version}`
 
@@ -200,6 +201,55 @@ service PluginService {
   rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
 }
 ```
+
+### PermissionService (15 RPCs)
+
+The permission engine is a generic, extensible authorization system using path-based resource grants with wildcard matching. Implemented by the ACL plugin container.
+
+```protobuf filename="proto/permission/v1/permission.proto"
+service PermissionService {
+  // Verbs — global verb definition with implication graphs
+  rpc RegisterVerb(RegisterVerbRequest) returns (RegisterVerbResponse);
+  rpc ListVerbs(ListVerbsRequest) returns (ListVerbsResponse);
+
+  // Resources — remove grants for a resource path (with optional cascade)
+  rpc RemoveResource(RemoveResourceRequest) returns (RemoveResourceResponse);
+
+  // Grants — path-based tuples: (principal, verb, resource_path)
+  rpc CreateGrant(CreateGrantRequest) returns (CreateGrantResponse);
+  rpc RevokeGrant(RevokeGrantRequest) returns (RevokeGrantResponse);
+  rpc ListGrants(ListGrantsRequest) returns (ListGrantsResponse);
+
+  // Access checks — verb implications + wildcard path matching (single SQL query)
+  rpc CheckAccess(CheckAccessRequest) returns (CheckAccessResponse);
+  rpc BatchCheckAccess(BatchCheckAccessRequest) returns (BatchCheckAccessResponse);
+
+  // Introspection — "who has access?" and "what can I access?"
+  rpc ListResourceAccess(ListResourceAccessRequest) returns (ListResourceAccessResponse);
+  rpc ListPrincipalAccess(ListPrincipalAccessRequest) returns (ListPrincipalAccessResponse);
+
+  // Groups — engine-managed groups with nested membership
+  rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
+  rpc DeleteGroup(DeleteGroupRequest) returns (DeleteGroupResponse);
+  rpc AddGroupMember(AddGroupMemberRequest) returns (AddGroupMemberResponse);
+  rpc RemoveGroupMember(RemoveGroupMemberRequest) returns (RemoveGroupMemberResponse);
+  rpc ListGroupMembers(ListGroupMembersRequest) returns (ListGroupMembersResponse);
+  rpc ListUserGroups(ListUserGroupsRequest) returns (ListUserGroupsResponse);
+
+  // External groups — sync from external providers (Keycloak, etc.)
+  rpc SyncExternalGroups(SyncExternalGroupsRequest) returns (SyncExternalGroupsResponse);
+}
+```
+
+Key design decisions:
+
+- **Path-based resources**: resources are slash-delimited paths (e.g., `gold/pipeline/bronze/orders`) — no explicit type registration needed
+- **Explicit wildcards**: `gold/*` grants access to all children, `*` is super admin — hierarchy is implicit in path structure
+- **Global verb implication graph**: `admin` implies `write`, `read`, `execute`, `publish`, `delete` — resolved via BFS. `publish` implies `read` but not `write`
+- **Extensible verbs**: `RegisterVerb` allows custom verbs (e.g., `deploy`) with their own implications
+- **Three principal types**: `USER` (direct grants), `GROUP` (engine-managed, nestable), `ROLE` (JWT/external groups)
+- **Single SQL query**: `CheckAccess` resolves in one query — no recursive hierarchy walks
+- **Batch checks**: `BatchCheckAccess` evaluates multiple resource/verb pairs in one call (used for list filtering)
 
 ### Shared Types
 
