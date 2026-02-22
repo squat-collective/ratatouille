@@ -11,7 +11,7 @@ FROM python:3.12-slim
 LABEL org.opencontainers.image.title="rat-query"
 LABEL org.opencontainers.image.description="RAT query service (DuckDB read-only sidecar)"
 LABEL org.opencontainers.image.source="https://github.com/squat-collective/rat"
-LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.vendor="RAT Data"
 RUN useradd --create-home query
 WORKDIR /app

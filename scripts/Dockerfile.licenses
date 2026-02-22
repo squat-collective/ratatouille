@@ -1,0 +1,39 @@
+# Multi-runtime image for generating third-party license reports.
+# Contains Go, Python 3.12, and Node.js 20 plus license scanning tools.
+#
+# Uses Debian (not Alpine) because Python packages like duckdb, pyarrow,
+# and grpcio only ship manylinux (glibc) wheels — they won't install on musl.
+#
+# Usage: docker build -t rat-licenses -f scripts/Dockerfile.licenses scripts/
+FROM golang:1.24-bookworm AS go-tools
+
+RUN go install github.com/google/go-licenses@latest
+
+# Python stage — get 3.12 binary
+FROM python:3.12-slim-bookworm AS py-tools
+
+RUN pip install --quiet pip-licenses
+
+# Final image: Node.js base + Go + Python copied in
+FROM node:20-bookworm-slim
+
+# Install minimal deps (ca-certificates needed for go-licenses TLS)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Go toolchain + go-licenses
+COPY --from=go-tools /usr/local/go /usr/local/go
+COPY --from=go-tools /go/bin/go-licenses /usr/local/bin/go-licenses
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV GOPATH="/go"
+
+# Copy Python 3.12 from the python stage
+COPY --from=py-tools /usr/local /usr/local
+# Ensure dynamic linker can find Python's shared libs
+RUN ldconfig
+
+# Install Node license tool
+RUN npm install -g license-checker
+
+WORKDIR /workspace

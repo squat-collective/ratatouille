@@ -238,6 +238,6 @@ jobs:
             ```
 
             ### License
-            RAT is licensed under [AGPL-3.0](https://github.com/squat-collective/rat/blob/main/LICENSE).
+            RAT is licensed under [Apache-2.0](https://github.com/squat-collective/rat/blob/main/LICENSE).
             Third-party license notices are available in the
             [Licenses workflow](https://github.com/squat-collective/rat/actions/workflows/licenses.yml).

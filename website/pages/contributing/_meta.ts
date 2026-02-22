@@ -6,4 +6,6 @@ export default {
   "architecture-decisions": "Architecture Decisions",
   "---": { type: "separator", title: "Internals" },
   architecture: "Architecture",
+  "----": { type: "separator" },
+  acknowledgments: "Acknowledgments",
 };

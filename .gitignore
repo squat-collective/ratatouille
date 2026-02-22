@@ -54,9 +54,9 @@ docs/code-review/
 # Website build
 website/.next/
 
-# Generated license reports (produced by CI)
-THIRD-PARTY-NOTICES.md
+# Generated license reports — intermediate artifacts
 licenses/
+# THIRD-PARTY-NOTICES.md files are committed (visible on GitHub)
 
 # Backups
 backups/
