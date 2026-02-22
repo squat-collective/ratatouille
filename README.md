@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/squat-collective/rat/actions/workflows/ci.yml/badge.svg)](https://github.com/squat-collective/rat/actions/workflows/ci.yml)
 [![Docs](https://github.com/squat-collective/rat/actions/workflows/docs.yml/badge.svg)](https://squat-collective.github.io/rat/)
-[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 RAT is an open-source data platform built for people who know SQL. Community Edition is free, self-hostable, and runs with a single `docker compose up`.
 
@@ -67,9 +67,7 @@ See [CLAUDE.md](CLAUDE.md) for full development guidelines.
 
 ## License
 
-AGPL-3.0 — see [LICENSE](LICENSE).
-
-Enterprise use? The community decides who pays and how much. If you're a whale, contribute back or support the project. Small shops use it free.
+Apache-2.0 — see [LICENSE](LICENSE).
 
 ---
 

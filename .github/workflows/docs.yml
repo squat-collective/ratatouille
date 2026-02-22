@@ -35,6 +35,16 @@ jobs:
           cache: npm
           cache-dependency-path: website/package-lock.json
 
+      # Ensure licenses.json exists for the acknowledgments page.
+      # If it's already committed, this is a no-op. Otherwise,
+      # create a placeholder so the build doesn't fail.
+      - name: Ensure licenses data exists
+        run: |
+          mkdir -p data
+          if [ ! -f data/licenses.json ]; then
+            echo "[]" > data/licenses.json
+          fi
+
       - name: Install dependencies
         run: npm ci
 

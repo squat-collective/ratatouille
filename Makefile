@@ -20,7 +20,8 @@ NODE_IMAGE := node:20-alpine
         sdk-build sdk-test portal-build portal-typecheck \
         dev-ratd dev-portal clean clean-all smoke-test \
         backup restore \
-        docs docs-build docs-serve
+        docs docs-build docs-serve \
+        licenses
 
 # ── Help ────────────────────────────────────────────────────────
 help: ## Show all available commands
@@ -317,6 +318,14 @@ docs-serve: docs-build ## Build and serve docs static site
 		-p 3001:3001 \
 		$(NODE_IMAGE) \
 		sh -c "npx serve -p 3001"
+
+# ── License Reports ───────────────────────────────────────────
+licenses: ## Generate third-party license reports for all components
+	@echo "📜 Generating license reports..."
+	@docker build -q -t rat-licenses -f scripts/Dockerfile.licenses scripts/ >/dev/null
+	@docker run --rm -v $$(pwd):/workspace -w /workspace rat-licenses \
+		bash scripts/generate-licenses.sh
+	@echo "✅ License reports generated"
 
 clean-all: clean ## Full clean — also removes Docker images and test images
 	@echo "   → Removing Docker images..."
