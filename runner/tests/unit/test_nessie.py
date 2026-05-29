@@ -103,6 +103,31 @@ class TestDeleteBranch:
         delete_branch(_nessie(), "run-r1")  # should not raise
 
     @patch("rat_runner.nessie.urllib.request.urlopen")
+    def test_delete_embeds_expected_hash_in_ref_path(self, mock_urlopen: MagicMock):
+        # Regression: Nessie 0.99.x rejects the `?expected-hash=` query form
+        # with 400; the hash must ride in the ref path via `{ref}@{hash}`.
+        ref_response = MagicMock()
+        ref_response.read.return_value = json.dumps(
+            {"name": "run-r1", "hash": "abc123", "type": "BRANCH"}
+        ).encode()
+        ref_response.__enter__ = lambda s: s
+        ref_response.__exit__ = MagicMock(return_value=False)
+
+        delete_response = MagicMock()
+        delete_response.read.return_value = b""
+        delete_response.__enter__ = lambda s: s
+        delete_response.__exit__ = MagicMock(return_value=False)
+
+        mock_urlopen.side_effect = [ref_response, delete_response]
+
+        delete_branch(_nessie(), "run-r1")
+
+        delete_url = mock_urlopen.call_args_list[1][0][0].full_url
+        # @ encodes to %40 via urllib.parse.quote(safe='')
+        assert "/trees/run-r1%40abc123" in delete_url
+        assert "expected-hash" not in delete_url
+
+    @patch("rat_runner.nessie.urllib.request.urlopen")
     def test_ignores_404_on_get_reference(self, mock_urlopen: MagicMock):
         mock_urlopen.side_effect = urllib.error.HTTPError(
             url="",

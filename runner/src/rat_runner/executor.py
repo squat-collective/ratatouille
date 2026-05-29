@@ -21,9 +21,11 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     import pyarrow as pa
 
+from common.v1 import data_plane_pb2  # type: ignore[import-untyped]
 from engine.v1 import engine_pb2  # type: ignore[import-untyped]
 
 from rat_runner.bindings import BindingConfig, DataPlane
+from rat_runner.catalog_client import CatalogClient
 from rat_runner.config import (
     CatalogConfig,
     DuckDBConfig,
@@ -38,7 +40,7 @@ from rat_runner.config import (
     read_s3_text,
     read_s3_text_version,
 )
-from rat_runner.descriptors import build_table_descriptor, layer_enum
+from rat_runner.descriptors import layer_enum
 from rat_runner.engine import DuckDBEngine
 from rat_runner.engine_client import EngineClient
 from rat_runner.failed_merge_audit import record_failed_merge
@@ -131,6 +133,9 @@ class _PipelineContext:
 
     # Engine mode: the resolved data-plane composition (set before Phase 0).
     data_plane: DataPlane | None = None
+    # Engine mode: catalog/v1 client — branch lifecycle + GetTable descriptor
+    # vending. None in the legacy local path (gated until #10).
+    catalog_client: CatalogClient | None = None
 
 
 def _archive_landing_zones(
@@ -728,6 +733,66 @@ def _engine_mode() -> bool:
     return os.environ.get("RAT_ENGINE_MODE", "").lower() in ("1", "true", "yes")
 
 
+def _assemble_table_descriptor(
+    catalog_client: CatalogClient,
+    storage_descriptor: Any,
+    namespace: str,
+    layer: int,
+    name: str,
+    branch: str,
+) -> Any:
+    """Build a TableDescriptor: catalog part vended by catalog/v1 GetTable, storage by storage/v1.
+
+    This replaces the runner-local build_table_descriptor — the catalog axis now
+    owns identifier + protocol + connection details (ADR-024 control plane).
+    """
+    ref = data_plane_pb2.TableRef(namespace=namespace, layer=layer, name=name)
+    info = catalog_client.get_table(ref, branch)
+    return data_plane_pb2.TableDescriptor(
+        ref=ref,
+        format=info.format,
+        identifier=info.identifier,
+        catalog=info.catalog,
+        storage=storage_descriptor,
+    )
+
+
+def _resolve_branch_via_catalog(
+    ctx: _PipelineContext, quality_results: list[QualityTestResult]
+) -> None:
+    """Engine-mode Phase 5: merge (or discard) the run branch via catalog/v1.
+
+    The branch is deleted in execute_pipeline's finally on quality failure; on
+    merge failure we retain it (the catalog service has no audit hook yet, so
+    the retained branch + the ERROR log are the recovery signal).
+    """
+    assert ctx.catalog_client is not None
+    if has_error_failures(quality_results):
+        ctx.log.error("Quality tests failed — discarding branch (no data on main)")
+        ctx.run.status = RunStatus.FAILED
+        ctx.run.error = _format_quality_error(quality_results)
+        return
+
+    ctx.log.info(f"Merging branch '{ctx.branch_name}' to main via catalog/v1")
+    try:
+        ctx.catalog_client.merge_branch(ctx.branch_name, "main")
+        ctx.log.info("Branch merged to main")
+    except Exception as e:
+        ctx.retain_branch = True
+        msg = f"branch merge failed via catalog/v1: {e} — branch {ctx.branch_name} retained"
+        logger.error(
+            "Phase 5 merge failed (catalog/v1) — branch retained",
+            extra={"branch": ctx.branch_name, "run": ctx.run.run_id, "merge_lost_data": True},
+            exc_info=True,
+        )
+        ctx.log.error(msg)
+        ctx.run.status = RunStatus.FAILED
+        ctx.run.error = msg
+        return
+
+    _post_success(ctx)
+
+
 def _parse_ref(table_ref: str, default_ns: str) -> tuple[str, str, str]:
     """Split a ref into (namespace, layer, name); 2-part refs take the default namespace."""
     parts = table_ref.split(".", 2)
@@ -822,28 +887,27 @@ def _phase_engine_execute(ctx: _PipelineContext) -> None:
             f"Engine mode supports 'sql'/'python' pipelines; got '{ctx.pipeline_type}'"
         )
 
+    assert ctx.catalog_client is not None, "engine mode must set ctx.catalog_client before execute"
     inputs: list[Any] = []
     for dep in extract_dependencies(raw_for_deps):
         dep_ns, dep_layer, dep_name = _parse_ref(dep, ns)
         inputs.append(
-            build_table_descriptor(
+            _assemble_table_descriptor(
+                ctx.catalog_client,
+                storage_descriptor,
                 dep_ns,
                 layer_enum(dep_layer),
                 dep_name,
-                plane,
-                ctx.nessie_config,
-                storage_descriptor,
-                branch="main",
+                "main",
             )
         )
-    output = build_table_descriptor(
+    output = _assemble_table_descriptor(
+        ctx.catalog_client,
+        storage_descriptor,
         ns,
         layer_enum(layer),
         name,
-        plane,
-        ctx.nessie_config,
-        storage_descriptor,
-        branch=ctx.branch_name,
+        ctx.branch_name,
     )
 
     strategy = str(ctx.config.merge_strategy) if ctx.config else "full_refresh"
@@ -924,9 +988,20 @@ def execute_pipeline(
         if _engine_mode():
             ctx.data_plane = _resolve_data_plane(ctx)
             branching = ctx.data_plane.supports_branching
+            # The catalog/v1 client is needed for ALL engine-mode runs (GetTable
+            # vends descriptors even when the catalog can't branch).
+            ctx.catalog_client = CatalogClient(ctx.data_plane.catalog_addr)
 
         if branching:
-            _phase0_create_branch(ctx)
+            if ctx.catalog_client is not None:
+                # Engine mode: branch lifecycle goes through the catalog axis.
+                ctx.branch_name = f"run-{ctx.run.run_id}"
+                ctx.log.info(f"Creating ephemeral branch '{ctx.branch_name}' via catalog/v1")
+                ctx.catalog_client.create_branch(ctx.branch_name, "main")
+                ctx.run.branch = ctx.branch_name
+                ctx.log.info(f"Branch '{ctx.branch_name}' created")
+            else:
+                _phase0_create_branch(ctx)
         else:
             ctx.branch_name = "main"
             ctx.log.info(
@@ -965,7 +1040,9 @@ def execute_pipeline(
         hook_ctx = _build_hook_context(ctx)
         registry.dispatch_hooks("post_quality", hook_ctx)
 
-        if branching:
+        if branching and ctx.catalog_client is not None:
+            _resolve_branch_via_catalog(ctx, quality_results)
+        elif branching:
             _phase5_resolve_branch(ctx, quality_results)
         elif has_error_failures(quality_results):
             ctx.run.status = RunStatus.FAILED
@@ -1000,7 +1077,10 @@ def execute_pipeline(
         # leave it for the operator (see `failed_merges` audit row).
         if run.branch and run.branch != "main" and not ctx.retain_branch:
             try:
-                delete_branch(nessie_config, run.branch)
+                if ctx.catalog_client is not None:
+                    ctx.catalog_client.delete_branch(run.branch)
+                else:
+                    delete_branch(nessie_config, run.branch)
             except Exception:
                 logger.warning(
                     "Failed to delete ephemeral branch '%s'",
@@ -1017,6 +1097,8 @@ def execute_pipeline(
 
         if ctx.engine is not None:
             ctx.engine.close()
+        if ctx.catalog_client is not None:
+            ctx.catalog_client.close()
         elapsed_ms = int((time.monotonic() - start) * 1000)
         run.duration_ms = elapsed_ms
         log.info(f"Duration: {elapsed_ms}ms")

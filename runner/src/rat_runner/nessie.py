@@ -252,10 +252,13 @@ def delete_branch(
             return
         raise
 
+    # Nessie v2 expects the branch's current hash embedded in the ref path
+    # via `{ref}@{hash}` syntax — the `?expected-hash=` query form is rejected
+    # with 400 (same constraint as merge_branch; confirmed on Nessie 0.99.x).
     branch_hash = ref["hash"]
-    encoded = _encode_branch(branch_name)
-    url = f"{nessie_config.api_v2_url}/trees/{encoded}"
-    req = urllib.request.Request(f"{url}?expected-hash={branch_hash}", method="DELETE")
+    ref_path = _encode_branch(branch_name) + urllib.parse.quote("@" + branch_hash, safe="")
+    url = f"{nessie_config.api_v2_url}/trees/{ref_path}"
+    req = urllib.request.Request(url, method="DELETE")
 
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
