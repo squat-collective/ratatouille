@@ -87,11 +87,19 @@ def _register_inputs(conn: Any, inputs: Any) -> None:
         metadata = table.metadata_location
         layer = _quote_identifier(layer_name(inp.ref.layer))
         name = _quote_identifier(inp.ref.name)
+        scan = f"SELECT * FROM iceberg_scan('{_escape_sql_string(metadata)}')"
+        # Logical 2-part ref ("layer"."name") — what the runner compiles to.
         conn.execute(f"CREATE SCHEMA IF NOT EXISTS {layer}")
-        conn.execute(
-            f"CREATE OR REPLACE VIEW {layer}.{name} AS "
-            f"SELECT * FROM iceberg_scan('{_escape_sql_string(metadata)}')"
-        )
+        conn.execute(f"CREATE OR REPLACE VIEW {layer}.{name} AS {scan}")
+        # Also expose the namespace-qualified 3-part ref ("ns"."layer"."name")
+        # so consumers that address tables fully (e.g. ratq's SELECT … FROM
+        # default.bronze.orders) bind too. The :memory: catalog mirrors how the
+        # query service registers its own views.
+        if inp.ref.namespace:
+            nsq = _quote_identifier(inp.ref.namespace)
+            conn.execute(f"ATTACH IF NOT EXISTS ':memory:' AS {nsq}")
+            conn.execute(f"CREATE SCHEMA IF NOT EXISTS {nsq}.{layer}")
+            conn.execute(f"CREATE OR REPLACE VIEW {nsq}.{layer}.{name} AS {scan}")
 
 
 def _engine_for_inputs(inputs: Any) -> DuckDBEngine:

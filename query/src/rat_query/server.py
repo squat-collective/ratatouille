@@ -18,9 +18,17 @@ from query.v1 import (
     query_pb2_grpc,  # type: ignore[import-untyped]
 )
 
+from rat_query import composition
 from rat_query.arrow_ipc import columns_from_schema, table_to_ipc
 from rat_query.catalog import NessieCatalog
-from rat_query.config import DuckDBConfig, NessieConfig, S3Config, UserDataPostgresConfig
+from rat_query.config import (
+    CompositionConfig,
+    DuckDBConfig,
+    NessieConfig,
+    S3Config,
+    UserDataPostgresConfig,
+    engine_mode,
+)
 from rat_query.engine import QueryEngine, QueryTimeoutError, _validate_identifier
 
 logger = logging.getLogger(__name__)
@@ -70,6 +78,7 @@ class QueryServiceImpl(query_pb2_grpc.QueryServiceServicer):
         nessie_config: NessieConfig,
         namespace: str = "default",
     ) -> None:
+        self._s3_config = s3_config
         self._engine = QueryEngine(
             s3_config,
             DuckDBConfig.from_env(),
@@ -78,6 +87,13 @@ class QueryServiceImpl(query_pb2_grpc.QueryServiceServicer):
         self._catalog = NessieCatalog(nessie_config, s3_config, self._engine)
         self._namespace = namespace
         self._refresh_stop = threading.Event()
+        # ADR-024 #12: when enabled, ExecuteQuery routes through engine/v1
+        # (format-agnostic reads). GetSchema/PreviewTable/ListTables stay on the
+        # local engine + Nessie catalog for now (follow-on).
+        self._engine_mode = engine_mode()
+        self._composition = CompositionConfig.from_env()
+        if self._engine_mode:
+            logger.info("ratq engine mode ON — ExecuteQuery routes through engine/v1")
 
         # Initial discovery + registration. register_all_tables enumerates
         # every namespace Nessie knows about; passing the constructor's
@@ -113,7 +129,10 @@ class QueryServiceImpl(query_pb2_grpc.QueryServiceServicer):
 
         try:
             start = time.monotonic()
-            table = self._engine.query_arrow(sql, limit)
+            if self._engine_mode:
+                table = composition.run_query(sql, limit, self._composition, self._s3_config.bucket)
+            else:
+                table = self._engine.query_arrow(sql, limit)
             duration_ms = int((time.monotonic() - start) * 1000)
         except QueryTimeoutError as e:
             # Surface as DEADLINE_EXCEEDED so callers can distinguish a

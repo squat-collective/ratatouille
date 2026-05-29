@@ -162,3 +162,33 @@ class NessieConfig:
     def api_v2_url(self) -> str:
         """Nessie v2 REST API base URL for table discovery."""
         return self._host_url + "/api/v2"
+
+
+def engine_mode() -> bool:
+    """Transitional opt-in: route reads through the engine/v1 composition (ADR-024).
+
+    When unset (the default) ratq reads Iceberg directly via its local DuckDB —
+    the legacy path. Mirrors the runner's RAT_ENGINE_MODE gate.
+    """
+    return os.environ.get("RAT_ENGINE_MODE", "").lower() in ("1", "true", "yes")
+
+
+@dataclass(frozen=True)
+class CompositionConfig:
+    """Axis addresses for the default data-plane composition (engine/catalog/storage).
+
+    First cut: a single composition from env addrs. Per-namespace binding
+    resolution (à la the runner's BindingConfig) is a follow-on.
+    """
+
+    engine_addr: str = "engine:50081"
+    catalog_addr: str = "catalog:50082"
+    storage_addr: str = "storage:50083"
+
+    @classmethod
+    def from_env(cls) -> CompositionConfig:
+        return cls(
+            engine_addr=os.environ.get("ENGINE_ADDR", "engine:50081"),
+            catalog_addr=os.environ.get("CATALOG_ADDR", "catalog:50082"),
+            storage_addr=os.environ.get("STORAGE_ADDR", "storage:50083"),
+        )
