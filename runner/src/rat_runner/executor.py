@@ -25,6 +25,7 @@ from common.v1 import data_plane_pb2  # type: ignore[import-untyped]
 from engine.v1 import engine_pb2  # type: ignore[import-untyped]
 
 from rat_runner.bindings import BindingConfig, DataPlane
+from rat_runner.capabilities import AxisCapabilities, check_composition
 from rat_runner.catalog_client import CatalogClient
 from rat_runner.config import (
     CatalogConfig,
@@ -832,6 +833,38 @@ def _resolve_data_plane(ctx: _PipelineContext) -> DataPlane:
     return binding.resolve(ctx.run.namespace, ctx.run.layer, ctx.run.pipeline_name)
 
 
+def _validate_composition(ctx: _PipelineContext) -> None:
+    """Fail-fast (ADR-024 #9): verify the resolved data plane is a valid composition.
+
+    Queries each axis's Describe and matches the binding against the advertised
+    capabilities BEFORE any side effect (branch creation, execute). A bad binding
+    raises CompositionError up-front instead of failing mid-run.
+    """
+    plane = ctx.data_plane
+    assert plane is not None and ctx.catalog_client is not None
+    engine_client = EngineClient(plane.engine_addr)
+    storage_client = StorageClient(plane.storage_addr)
+    try:
+        engine_d = engine_client.describe()
+        storage_d = storage_client.describe()
+    finally:
+        engine_client.close()
+        storage_client.close()
+    catalog_d = ctx.catalog_client.describe()
+    caps = AxisCapabilities(
+        engine_formats=list(engine_d.formats),
+        engine_languages=list(engine_d.languages),
+        catalog_formats=list(catalog_d.formats),
+        catalog_capabilities=list(catalog_d.capabilities),
+        storage_schemes=list(storage_d.schemes),
+    )
+    check_composition(plane, caps)
+    ctx.log.info(
+        f"Composition '{plane.name}' validated "
+        f"(format={plane.format}, branching={plane.supports_branching})"
+    )
+
+
 def _phase_engine_execute(ctx: _PipelineContext) -> None:
     """Decoupled path (ADR-024): execute + write via engine/v1, replacing local phases 2+3.
 
@@ -991,6 +1024,8 @@ def execute_pipeline(
             # The catalog/v1 client is needed for ALL engine-mode runs (GetTable
             # vends descriptors even when the catalog can't branch).
             ctx.catalog_client = CatalogClient(ctx.data_plane.catalog_addr)
+            # Fail-fast: reject an incompatible binding before any side effects.
+            _validate_composition(ctx)
 
         if branching:
             if ctx.catalog_client is not None:
