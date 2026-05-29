@@ -132,6 +132,35 @@ See `docs/adr/005-runner-service.md` for architecture decisions.
 
 ---
 
+## Decoupled Data Architecture (ADR-024)
+
+> Opt-in env vars for the decoupled Storage / Catalog / Engine composition. Read by
+> both the runner and the query service (`rat-query`). When `RAT_ENGINE_MODE` is
+> unset, both fall back to their embedded local paths (current default), so these
+> are inert until you turn the composition on.
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `RAT_ENGINE_MODE` | No | (off) | Set to `1`/`true`/`yes` to route execution (runner) and reads (ratq) through the engine/v1 composition instead of the embedded DuckDB path. |
+| `RAT_BINDINGS` | No | — | Path to a `rat.yaml`-shaped file declaring `data_planes` + `bindings`. Resolution is most-specific-wins (pipeline → layer → namespace → default). With no file, a single `default` plane is built from the `*_ADDR` vars below. |
+| `ENGINE_ADDR` | No | `engine:50081` | gRPC address of the engine/v1 service (the compute axis). |
+| `CATALOG_ADDR` | No | `catalog:50082` | gRPC address of the catalog/v1 service (descriptors + branch lifecycle + discovery). |
+| `STORAGE_ADDR` | No | `storage:50083` | gRPC address of the storage/v1 service (vends storage descriptors). |
+
+**Example** (single default composition):
+```
+RAT_ENGINE_MODE=true
+ENGINE_ADDR=engine:50081
+CATALOG_ADDR=catalog:50082
+STORAGE_ADDR=storage:50083
+```
+
+With `RAT_BINDINGS` pointing at a file, a query or pipeline can span multiple
+compositions (e.g. an Iceberg/Nessie default plane plus a DuckLake plane bound to
+a namespace). See `docs/adr/024-decoupled-data-architecture.md`.
+
+---
+
 ## Pipeline Config (`config.yaml`)
 
 > Per-pipeline configuration stored at `{namespace}/pipelines/{layer}/{name}/config.yaml` on S3.
