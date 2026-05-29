@@ -67,6 +67,7 @@ from rat_runner.plugin_protocols import HookContext
 from rat_runner.plugin_registry import PluginRegistry
 from rat_runner.python_exec import execute_python_pipeline
 from rat_runner.quality import has_error_failures, run_quality_tests
+from rat_runner.storage_client import StorageClient
 from rat_runner.templating import (
     compile_sql,
     extract_dependencies,
@@ -790,6 +791,13 @@ def _phase_engine_execute(ctx: _PipelineContext) -> None:
         f"Engine mode: data_plane '{plane.name}' engine={plane.engine_addr} format={plane.format}"
     )
 
+    # Vend the StorageDescriptor from the storage/v1 service (it owns the S3 creds).
+    storage_client = StorageClient(plane.storage_addr)
+    try:
+        storage_descriptor = storage_client.vend_descriptor(location=ctx.s3_config.bucket)
+    finally:
+        storage_client.close()
+
     if ctx.pipeline_type == "sql":
         language = "sql"
         helpers = dict(ctx.registry.get_helpers())
@@ -824,7 +832,7 @@ def _phase_engine_execute(ctx: _PipelineContext) -> None:
                 dep_name,
                 plane,
                 ctx.nessie_config,
-                ctx.s3_config,
+                storage_descriptor,
                 branch="main",
             )
         )
@@ -834,7 +842,7 @@ def _phase_engine_execute(ctx: _PipelineContext) -> None:
         name,
         plane,
         ctx.nessie_config,
-        ctx.s3_config,
+        storage_descriptor,
         branch=ctx.branch_name,
     )
 
