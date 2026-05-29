@@ -16,16 +16,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from rat_engine_duckdb import strategy_matrix
 from rat_engine_duckdb.formats.iceberg import _escape_sql_string, _quote_identifier
 
 if TYPE_CHECKING:
     import pyarrow as pa
 
 _LAYER_NAMES = {1: "bronze", 2: "silver", 3: "gold"}
-
-# Strategies the initial adapter supports (both = full materialization). Real
-# incremental/scd2/delete_insert via DuckLake MERGE/UPDATE/DELETE is a follow-on.
-_FULL_MATERIALIZE = frozenset({"full_refresh", "snapshot"})
 
 
 def _attach_lake(conn: Any, catalog: Any, storage: Any) -> None:
@@ -47,12 +44,9 @@ def execute_ducklake(conn: Any, request: Any) -> tuple[int, pa.Schema]:
     out = request.output
     if request.language != "sql":
         raise RuntimeError(f"ducklake adapter supports 'sql' only; got {request.language!r}")
-    strategy = request.strategy or "full_refresh"
-    if strategy not in _FULL_MATERIALIZE:
-        raise RuntimeError(
-            f"ducklake adapter: strategy {strategy!r} not implemented "
-            "(full_refresh/snapshot only for now)"
-        )
+    # Validate against the shared (engine, format) matrix; raises UnknownStrategyError
+    # (with the supported list) for a strategy ducklake doesn't implement yet.
+    strategy_matrix.require_supported("ducklake", request.strategy or "full_refresh")
 
     _attach_lake(conn, out.catalog, out.storage)
     layer = _quote_identifier(_LAYER_NAMES.get(out.ref.layer, "main"))

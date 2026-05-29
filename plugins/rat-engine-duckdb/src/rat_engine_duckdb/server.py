@@ -42,14 +42,7 @@ from rat_engine_duckdb.formats.iceberg import (
     get_catalog,
 )
 from rat_engine_duckdb.python_exec import execute_python_pipeline
-from rat_engine_duckdb.strategies import (
-    AppendOnlyStrategy,
-    DeleteInsertStrategy,
-    FullRefreshStrategy,
-    IncrementalStrategy,
-    SCD2Strategy,
-    SnapshotStrategy,
-)
+from rat_engine_duckdb.strategies import iceberg_recipe
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -63,16 +56,6 @@ _LANGUAGES = ["sql", "python"]
 _FORMATS = ["iceberg", "ducklake"]
 _CAPABILITIES = ["preview", "explain"]
 _DIALECTS = ["duckdb"]
-
-# Strategy NAME → recipe. Resolved inside the engine for the (duckdb, iceberg) pair.
-_STRATEGIES = {
-    "full_refresh": FullRefreshStrategy(),
-    "incremental": IncrementalStrategy(),
-    "append_only": AppendOnlyStrategy(),
-    "delete_insert": DeleteInsertStrategy(),
-    "scd2": SCD2Strategy(),
-    "snapshot": SnapshotStrategy(),
-}
 
 
 def _schema_to_ipc(schema: pa.Schema) -> bytes:
@@ -127,9 +110,9 @@ def _execute_iceberg(engine: DuckDBEngine, request: Any) -> tuple[int, Any]:
     language = request.language or "sql"
     if language not in ("sql", "python"):
         raise RuntimeError(f"unsupported language {language!r}")
-    strategy = _STRATEGIES.get(request.strategy or "full_refresh")
-    if strategy is None:
-        raise RuntimeError(f"unknown strategy {request.strategy!r}")
+    # Universal strategy NAME → (duckdb, iceberg) recipe; raises UnknownStrategyError
+    # (with the supported list) for a name iceberg doesn't implement.
+    strategy = iceberg_recipe(request.strategy or "full_refresh")
     s3 = s3_config_from_storage(out.storage)
     nessie = nessie_config_from_catalog(out.catalog)
     branch = out.catalog.branch or "main"
