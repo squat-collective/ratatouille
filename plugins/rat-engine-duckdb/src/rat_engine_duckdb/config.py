@@ -61,6 +61,11 @@ class NessieConfig:
     """Nessie catalog connection. Mirrors the runner's canonical NessieConfig."""
 
     url: str = "http://nessie:19120/api/v1"
+    # Catalog protocol + Lakekeeper-style options. Defaults preserve Nessie behavior;
+    # a lakekeeper plane sets protocol="lakekeeper" + a named warehouse + bearer token.
+    protocol: str = "iceberg-rest"
+    warehouse: str = ""
+    token: str = ""
 
     @property
     def _host_url(self) -> str:

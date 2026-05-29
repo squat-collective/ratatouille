@@ -24,6 +24,8 @@ class DataPlane:
     catalog_addr: str
     storage_addr: str
     format: str = "iceberg"
+    catalog_protocol: str = "iceberg-rest"  # iceberg-rest (Nessie) | lakekeeper | ducklake
+    supports_branching: bool = True  # Nessie branches; lakekeeper/ducklake do not
 
 
 @dataclass(frozen=True)
@@ -68,6 +70,8 @@ class BindingConfig:
                 catalog_addr=spec["catalog"],
                 storage_addr=spec["storage"],
                 format=spec.get("format", "iceberg"),
+                catalog_protocol=spec.get("catalog_protocol", "iceberg-rest"),
+                supports_branching=spec.get("supports_branching", True),
             )
         bindings = raw.get("bindings") or {}
         default_plane = bindings.get("default", "default")

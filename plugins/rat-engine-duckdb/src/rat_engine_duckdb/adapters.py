@@ -36,7 +36,14 @@ def s3_config_from_storage(storage: Any) -> S3Config:
 
 
 def nessie_config_from_catalog(catalog: Any) -> NessieConfig:
-    """CatalogDescriptor → NessieConfig (URL suffix normalization is internal)."""
+    """CatalogDescriptor → NessieConfig. Lakekeeper carries protocol + warehouse + token."""
+    if catalog.protocol == "lakekeeper":
+        return NessieConfig(
+            url=catalog.uri,
+            protocol="lakekeeper",
+            warehouse=catalog.options.get("warehouse", ""),
+            token=catalog.options.get("token", "dummy"),
+        )
     return NessieConfig(url=catalog.uri)
 
 

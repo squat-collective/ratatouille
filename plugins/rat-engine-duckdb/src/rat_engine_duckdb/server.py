@@ -134,6 +134,9 @@ def _execute_iceberg(engine: DuckDBEngine, request: Any) -> tuple[int, Any]:
     nessie = nessie_config_from_catalog(out.catalog)
     branch = out.catalog.branch or "main"
     cfg = pipeline_config_from_options(request.options, request.strategy or "full_refresh")
+    # Lakekeeper assigns table locations under its own warehouse prefix and rejects
+    # an explicit one; Nessie expects the runner-provided location.
+    location = "" if out.catalog.protocol == "lakekeeper" else table_location(out)
     if language == "sql":
         _register_inputs(engine.conn, request.inputs)
         result = engine.query_arrow(request.source)
@@ -154,7 +157,7 @@ def _execute_iceberg(engine: DuckDBEngine, request: Any) -> tuple[int, Any]:
         table_identifier(out),
         s3,
         nessie,
-        table_location(out),
+        location,
         cfg,
         branch=branch,
         conn=engine.conn,

@@ -70,6 +70,17 @@ def build_table_descriptor(
                 )
             },
         )
+    elif data_plane.catalog_protocol == "lakekeeper":
+        # Lakekeeper: Iceberg REST catalog with a named warehouse + bearer token (no
+        # Nessie prefix/branch). Connection from env in config mode.
+        catalog = data_plane_pb2.CatalogDescriptor(
+            protocol="lakekeeper",
+            uri=os.environ.get("LAKEKEEPER_URI", "http://lakekeeper:8181/catalog"),
+            options={
+                "warehouse": os.environ.get("LAKEKEEPER_WAREHOUSE", "rat"),
+                "token": os.environ.get("LAKEKEEPER_TOKEN", "dummy"),
+            },
+        )
     else:
         catalog = data_plane_pb2.CatalogDescriptor(
             protocol="iceberg-rest", uri=nessie_config.base_url, branch=branch

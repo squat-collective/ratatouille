@@ -915,7 +915,7 @@ def execute_pipeline(
         branching = True
         if _engine_mode():
             ctx.data_plane = _resolve_data_plane(ctx)
-            branching = ctx.data_plane.format == "iceberg"
+            branching = ctx.data_plane.supports_branching
 
         if branching:
             _phase0_create_branch(ctx)

@@ -113,20 +113,30 @@ def get_catalog(
     nessie_config: NessieConfig,
     branch: str = "main",
 ) -> RestCatalog:
-    """Create a PyIceberg REST catalog pointing at Nessie."""
+    """Create a PyIceberg REST catalog from the catalog config.
+
+    Supports Nessie-style catalogs (branch via ``prefix``, warehouse = the S3 bucket)
+    and Lakekeeper-style catalogs (a named warehouse + bearer token, no prefix),
+    selected by ``nessie_config.protocol``.
+    """
     catalog_props: dict[str, str] = {
         "type": "rest",
-        "uri": nessie_config.base_url,
         "s3.endpoint": s3_config.endpoint_url,
         "s3.access-key-id": s3_config.access_key,
         "s3.secret-access-key": s3_config.secret_key,
         "s3.path-style-access": "true",
-        "warehouse": f"s3://{s3_config.bucket}",
-        "prefix": branch,
     }
     if s3_config.session_token:
         catalog_props["s3.session-token"] = s3_config.session_token
-    catalog = load_catalog("nessie", **catalog_props)
+    if nessie_config.protocol == "lakekeeper":
+        catalog_props["uri"] = nessie_config.url
+        catalog_props["warehouse"] = nessie_config.warehouse
+        catalog_props["token"] = nessie_config.token or "dummy"
+    else:
+        catalog_props["uri"] = nessie_config.base_url
+        catalog_props["warehouse"] = f"s3://{s3_config.bucket}"
+        catalog_props["prefix"] = branch
+    catalog = load_catalog(nessie_config.protocol, **catalog_props)
     assert isinstance(catalog, RestCatalog)
     return catalog
 
@@ -243,8 +253,11 @@ def write_iceberg(
         create_kwargs: dict[str, object] = {
             "identifier": table_name,
             "schema": data.schema,
-            "location": location,
         }
+        if location:
+            # Catalogs like Lakekeeper assign locations under their own warehouse
+            # prefix and reject an explicit one — pass it only when provided.
+            create_kwargs["location"] = location
         if partition_by:
             create_kwargs["partition_spec"] = build_partition_spec(data.schema, partition_by)
         table = catalog.create_table(**create_kwargs)
