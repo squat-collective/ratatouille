@@ -21,7 +21,7 @@ from catalog.v1 import (  # type: ignore[import-untyped]
 )
 from common.v1 import data_plane_pb2  # type: ignore[import-untyped]
 
-from rat_catalog import __version__, nessie
+from rat_catalog import __version__, discovery, nessie
 from rat_catalog.config import NessieConfig
 
 _logger = logging.getLogger("rat_catalog.server")
@@ -37,6 +37,7 @@ _CAPABILITIES = {
 }
 _FORMATS = {"iceberg-rest": "iceberg", "lakekeeper": "iceberg", "ducklake": "ducklake"}
 _LAYER_NAMES = {1: "bronze", 2: "silver", 3: "gold"}
+_LAYER_ENUMS = {name: num for num, name in _LAYER_NAMES.items()}
 
 
 def _catalog_descriptor(branch: str) -> Any:
@@ -69,6 +70,16 @@ def _require_branching(context: grpc.ServicerContext) -> None:
         context.abort(
             grpc.StatusCode.FAILED_PRECONDITION,
             f"catalog '{_PROTOCOL}' does not support branch lifecycle",
+        )
+
+
+def _require_discovery(context: grpc.ServicerContext) -> None:
+    # Discovery currently speaks the Nessie v2 entries API; lakekeeper/ducklake
+    # discovery is a protocol-specific follow-on.
+    if _PROTOCOL != "iceberg-rest":
+        context.abort(
+            grpc.StatusCode.UNIMPLEMENTED,
+            f"discovery not yet implemented for catalog protocol '{_PROTOCOL}'",
         )
 
 
@@ -111,10 +122,20 @@ class CatalogServicer(catalog_pb2_grpc.CatalogServiceServicer):
         return catalog_pb2.DeleteBranchResponse(deleted=True)
 
     def ListNamespaces(self, request: Any, context: grpc.ServicerContext) -> Any:  # noqa: N802
-        context.abort(grpc.StatusCode.UNIMPLEMENTED, "discovery lands in a follow-on")
+        _require_discovery(context)
+        namespaces = discovery.list_namespaces(NessieConfig.from_env(), request.parent or "")
+        return catalog_pb2.ListNamespacesResponse(namespaces=namespaces)
 
     def ListTables(self, request: Any, context: grpc.ServicerContext) -> Any:  # noqa: N802
-        context.abort(grpc.StatusCode.UNIMPLEMENTED, "discovery lands in a follow-on")
+        _require_discovery(context)
+        layer_filter = _LAYER_NAMES.get(request.layer, "")
+        rows = discovery.list_tables(NessieConfig.from_env(), request.namespace, layer_filter)
+        return catalog_pb2.ListTablesResponse(
+            tables=[
+                data_plane_pb2.TableRef(namespace=ns, layer=_LAYER_ENUMS[layer], name=name)
+                for ns, layer, name in rows
+            ]
+        )
 
     def GetHistory(self, request: Any, context: grpc.ServicerContext) -> Any:  # noqa: N802
         context.abort(grpc.StatusCode.UNIMPLEMENTED, "history lands in a follow-on")
