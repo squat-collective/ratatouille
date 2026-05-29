@@ -38,6 +38,26 @@ def _make_servicer() -> QueryServiceImpl:
     return servicer
 
 
+def test_engine_mode_skips_local_stack(monkeypatch):
+    """In RAT_ENGINE_MODE the local DuckDB engine + Nessie catalog aren't created."""
+    monkeypatch.setenv("RAT_ENGINE_MODE", "1")
+    from rat_query.config import NessieConfig, S3Config
+
+    with (
+        patch("rat_query.server.QueryEngine") as MockEngine,
+        patch("rat_query.server.NessieCatalog") as MockCatalog,
+    ):
+        servicer = QueryServiceImpl(
+            s3_config=S3Config(), nessie_config=NessieConfig(), namespace="default"
+        )
+
+    assert servicer._engine is None
+    assert servicer._catalog is None
+    assert servicer._refresh_thread is None
+    MockEngine.assert_not_called()
+    MockCatalog.assert_not_called()
+
+
 class TestExecuteQuery:
     def test_success(self):
         servicer = _make_servicer()

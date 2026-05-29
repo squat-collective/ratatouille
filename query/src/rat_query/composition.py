@@ -31,6 +31,7 @@ from storage.v1 import (  # type: ignore[import-untyped]
     storage_pb2_grpc,
 )
 
+from rat_query.arrow_ipc import columns_from_schema
 from rat_query.engine import (
     _BLOCKED_FUNCTIONS,
     _BLOCKED_STATEMENTS,
@@ -186,3 +187,29 @@ def run_query(sql: str, limit: int, binding: BindingConfig, bucket: str) -> pa.T
             if resp.arrow_ipc:
                 table = _ipc_to_table(resp.arrow_ipc)
     return table if table is not None else pa.table({})
+
+
+def _qualified(ns: str, layer: str, name: str) -> str:
+    return f'"{ns}"."{layer}"."{name}"'
+
+
+def describe_table(
+    binding: BindingConfig, ns: str, layer: str, name: str, bucket: str
+) -> list[tuple[str, str]]:
+    """(column, type) pairs for a table, via a LIMIT 0 engine.Query (schema only)."""
+    table = run_query(f"SELECT * FROM {_qualified(ns, layer, name)} LIMIT 0", 0, binding, bucket)
+    return columns_from_schema(table.schema)
+
+
+def count_rows(binding: BindingConfig, ns: str, layer: str, name: str, bucket: str) -> int:
+    """Row count for a table via engine.Query."""
+    sql = f"SELECT count(*) AS n FROM {_qualified(ns, layer, name)}"
+    rows = run_query(sql, 1, binding, bucket).to_pylist()
+    return int(rows[0]["n"]) if rows else 0
+
+
+def preview(
+    binding: BindingConfig, ns: str, layer: str, name: str, limit: int, bucket: str
+) -> pa.Table:
+    """First ``limit`` rows of a table via engine.Query."""
+    return run_query(f"SELECT * FROM {_qualified(ns, layer, name)}", limit, binding, bucket)

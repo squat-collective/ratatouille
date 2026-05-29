@@ -80,17 +80,7 @@ class QueryServiceImpl(query_pb2_grpc.QueryServiceServicer):
         namespace: str = "default",
     ) -> None:
         self._s3_config = s3_config
-        self._engine = QueryEngine(
-            s3_config,
-            DuckDBConfig.from_env(),
-            UserDataPostgresConfig.from_env(),
-        )
-        self._catalog = NessieCatalog(nessie_config, s3_config, self._engine)
         self._namespace = namespace
-        self._refresh_stop = threading.Event()
-        # ADR-024 #12: when enabled, ExecuteQuery routes through engine/v1
-        # (format-agnostic reads). GetSchema/PreviewTable/ListTables stay on the
-        # local engine + Nessie catalog for now (follow-on).
         self._engine_mode = engine_mode()
         cc = CompositionConfig.from_env()
         self._binding = BindingConfig.load(
@@ -99,17 +89,32 @@ class QueryServiceImpl(query_pb2_grpc.QueryServiceServicer):
             catalog_addr=cc.catalog_addr,
             storage_addr=cc.storage_addr,
         )
+
+        # ADR-024 #12: in engine mode ALL read RPCs route through the engine/v1
+        # composition, so the embedded DuckDB engine + Nessie catalog (and its
+        # refresh thread) aren't created at all — ratq holds no local data plane.
+        self._engine: QueryEngine | None = None
+        self._catalog: NessieCatalog | None = None
+        self._refresh_stop = threading.Event()
+        self._refresh_thread: threading.Thread | None = None
+
         if self._engine_mode:
             logger.info(
-                "ratq engine mode ON — reads route through engine/v1 (%d data planes)",
+                "ratq engine mode ON — reads route through engine/v1 (%d data planes); "
+                "local DuckDB + Nessie catalog disabled",
                 len(self._binding.data_planes),
             )
+            return
 
-        # Initial discovery + registration. register_all_tables enumerates
-        # every namespace Nessie knows about; passing the constructor's
-        # `namespace` as an extra ensures the default tenant is still
-        # registered even on a fresh database where it hasn't shown up in
-        # Nessie yet.
+        self._engine = QueryEngine(
+            s3_config,
+            DuckDBConfig.from_env(),
+            UserDataPostgresConfig.from_env(),
+        )
+        self._catalog = NessieCatalog(nessie_config, s3_config, self._engine)
+        # Initial discovery + registration. register_all_tables enumerates every
+        # namespace Nessie knows about; passing the constructor's `namespace` as
+        # an extra ensures the default tenant is registered even on a fresh DB.
         try:
             self._catalog.register_all_tables(extra_namespaces=[namespace])
         except Exception:
@@ -142,6 +147,7 @@ class QueryServiceImpl(query_pb2_grpc.QueryServiceServicer):
             if self._engine_mode:
                 table = composition.run_query(sql, limit, self._binding, self._s3_config.bucket)
             else:
+                assert self._engine is not None
                 table = self._engine.query_arrow(sql, limit)
             duration_ms = int((time.monotonic() - start) * 1000)
         except QueryTimeoutError as e:
@@ -195,8 +201,14 @@ class QueryServiceImpl(query_pb2_grpc.QueryServiceServicer):
             context.set_details(str(e))
             return query_pb2.GetSchemaResponse()
 
+        ns = request.namespace or self._namespace
+        bucket = self._s3_config.bucket
         try:
-            col_info = self._engine.describe_table(layer, name)
+            if self._engine_mode:
+                col_info = composition.describe_table(self._binding, ns, layer, name, bucket)
+            else:
+                assert self._engine is not None
+                col_info = self._engine.describe_table(layer, name)
         except Exception as e:
             logger.error("describe_table failed for %s.%s: %s", layer, name, e)
             context.set_code(grpc.StatusCode.NOT_FOUND)
@@ -204,7 +216,11 @@ class QueryServiceImpl(query_pb2_grpc.QueryServiceServicer):
             return query_pb2.GetSchemaResponse()
 
         try:
-            row_count = self._engine.count_rows(layer, name)
+            if self._engine_mode:
+                row_count = composition.count_rows(self._binding, ns, layer, name, bucket)
+            else:
+                assert self._engine is not None
+                row_count = self._engine.count_rows(layer, name)
         except Exception as e:
             logger.warning("count_rows failed for %s.%s: %s", layer, name, e)
             row_count = -1
@@ -246,8 +262,15 @@ class QueryServiceImpl(query_pb2_grpc.QueryServiceServicer):
         limit = request.limit if request.limit > 0 else 50
 
         try:
-            sql = f'SELECT * FROM "{layer}"."{name}"'
-            table = self._engine.query_arrow(sql, limit)
+            if self._engine_mode:
+                ns = request.namespace or self._namespace
+                table = composition.preview(
+                    self._binding, ns, layer, name, limit, self._s3_config.bucket
+                )
+            else:
+                assert self._engine is not None
+                sql = f'SELECT * FROM "{layer}"."{name}"'
+                table = self._engine.query_arrow(sql, limit)
         except QueryTimeoutError as e:
             logger.warning("PreviewTable timed out for %s.%s: %s", layer, name, e)
             context.set_code(grpc.StatusCode.DEADLINE_EXCEEDED)
@@ -312,10 +335,12 @@ class QueryServiceImpl(query_pb2_grpc.QueryServiceServicer):
         return query_pb2.ListTablesResponse(tables=table_infos)
 
     def shutdown(self) -> None:
-        """Stop background threads and release resources."""
+        """Stop background threads and release resources (no-ops in engine mode)."""
         self._refresh_stop.set()
-        self._refresh_thread.join(timeout=5.0)
-        self._engine.close()
+        if self._refresh_thread is not None:
+            self._refresh_thread.join(timeout=5.0)
+        if self._engine is not None:
+            self._engine.close()
 
 
 def _str_to_layer(layer: str) -> int:
