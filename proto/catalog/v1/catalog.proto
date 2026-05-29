@@ -1,0 +1,128 @@
+syntax = "proto3";
+package ratatouille.catalog.v1;
+
+option go_package = "github.com/rat-data/rat/platform/gen/catalog/v1;catalogv1";
+
+import "common/v1/common.proto";
+import "common/v1/data_plane.proto";
+import "google/protobuf/timestamp.proto";
+
+// Field reservation policy: see common/v1/common.proto.
+// When removing fields, always add `reserved` for both the number and name.
+
+// CatalogService is the pluggable catalog axis -- RAT's CONTROL PLANE for table
+// discovery, schema, branch lifecycle, and history. The engine does its data-plane
+// reads/commits through the catalog's NATIVE protocol (via CatalogDescriptor), NOT
+// through this service. Optional RPCs (branching, history) are gated by the
+// capabilities reported in Describe; the runner must check before calling.
+// Implemented by catalog plugins (e.g. rat-catalog-nessie). Called by the runner.
+service CatalogService {
+  // Report identity + capabilities (open-set strings) + managed formats.
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+
+  // Discovery.
+  rpc ListNamespaces(ListNamespacesRequest) returns (ListNamespacesResponse);
+  rpc ListTables(ListTablesRequest) returns (ListTablesResponse);
+  rpc GetTable(GetTableRequest) returns (GetTableResponse);
+
+  // Branch lifecycle -- gated by capability "branching".
+  rpc CreateBranch(CreateBranchRequest) returns (CreateBranchResponse);
+  rpc MergeBranch(MergeBranchRequest) returns (MergeBranchResponse);
+  rpc DeleteBranch(DeleteBranchRequest) returns (DeleteBranchResponse);
+
+  // History -- gated by capability "history".
+  rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
+}
+
+message DescribeRequest {}
+
+message DescribeResponse {
+  string name = 1;                   // plugin id, e.g. "rat-catalog-nessie"
+  string version = 2;                // plugin version
+  repeated string capabilities = 3;  // open-set ids: "branching","time_travel","row_diff","history","schema_evolution"
+  repeated string formats = 4;       // table formats this catalog manages, e.g. ["iceberg"]
+}
+
+message ListNamespacesRequest {
+  string parent = 1;  // optional parent namespace filter ("" = top level)
+}
+
+message ListNamespacesResponse {
+  repeated string namespaces = 1;  // namespace identifiers
+}
+
+message ListTablesRequest {
+  string namespace = 1;                    // namespace to list within
+  ratatouille.common.v1.Layer layer = 2;  // optional layer filter (LAYER_UNSPECIFIED = all)
+}
+
+message ListTablesResponse {
+  repeated ratatouille.common.v1.TableRef tables = 1;  // tables found
+}
+
+message GetTableRequest {
+  ratatouille.common.v1.TableRef ref = 1;  // table to describe
+  string branch = 2;                       // catalog branch to read from ("" = default/main)
+}
+
+message GetTableResponse {
+  bool exists = 1;                                          // false if the table does not exist yet
+  ColumnSchema schema = 2;                                 // table schema (empty if not exists)
+  ratatouille.common.v1.CatalogDescriptor catalog = 3;     // descriptor to reach this table's catalog
+  string identifier = 4;                                   // catalog-native identifier
+  string format = 5;                                       // table format id
+}
+
+// ColumnSchema is a minimal, format-neutral schema projection for discovery/UI.
+message ColumnSchema {
+  repeated Column columns = 1;  // ordered columns
+}
+
+message Column {
+  string name = 1;      // column name
+  string type = 2;      // logical type name (catalog-reported)
+  bool nullable = 3;    // whether the column is nullable
+}
+
+message CreateBranchRequest {
+  string name = 1;         // branch to create (e.g. "run-<uuid>")
+  string from_branch = 2;  // source branch (default "main")
+}
+
+message CreateBranchResponse {
+  string name = 1;         // created branch name
+  string commit_hash = 2;  // head commit hash of the new branch
+}
+
+message MergeBranchRequest {
+  string source = 1;  // branch to merge from
+  string target = 2;  // branch to merge into (default "main")
+}
+
+message MergeBranchResponse {
+  bool merged = 1;         // true if the merge succeeded
+  string commit_hash = 2;  // resulting target head hash (empty if not merged)
+}
+
+message DeleteBranchRequest {
+  string name = 1;  // branch to delete
+}
+
+message DeleteBranchResponse {
+  bool deleted = 1;  // true if deleted (or already absent)
+}
+
+message GetHistoryRequest {
+  ratatouille.common.v1.TableRef ref = 1;  // table to read history for
+  int32 limit = 2;                         // max commits to return (0 = server default)
+}
+
+message GetHistoryResponse {
+  repeated Commit commits = 1;  // most-recent-first commit list
+}
+
+message Commit {
+  string hash = 1;                             // commit hash
+  string message = 2;                          // commit message
+  google.protobuf.Timestamp committed_at = 3;  // commit timestamp
+}

@@ -1,0 +1,65 @@
+syntax = "proto3";
+package ratatouille.storage.v1;
+
+option go_package = "github.com/rat-data/rat/platform/gen/storage/v1;storagev1";
+
+import "common/v1/data_plane.proto";
+
+// Field reservation policy: see common/v1/common.proto.
+// When removing fields, always add `reserved` for both the number and name.
+
+// StorageService is the pluggable object-storage axis. It vends storage
+// descriptors the engine uses for native I/O, and performs the few control-plane
+// object operations the orchestrator needs (list, move -- e.g. landing-zone
+// archival). It never touches table format or semantics, only bytes.
+// Implemented by storage plugins (e.g. rat-storage-s3). Called by the runner.
+service StorageService {
+  // Report identity + which storage schemes this plugin serves.
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+
+  // Vend a ready-to-use StorageDescriptor for a location (handed to an engine).
+  rpc VendDescriptor(VendDescriptorRequest) returns (VendDescriptorResponse);
+
+  // List object keys under a prefix (control-plane housekeeping).
+  rpc ListObjects(ListObjectsRequest) returns (ListObjectsResponse);
+
+  // Move/archive object keys to a destination prefix (e.g. processed landing zones).
+  rpc MoveObjects(MoveObjectsRequest) returns (MoveObjectsResponse);
+}
+
+message DescribeRequest {}
+
+message DescribeResponse {
+  string name = 1;              // plugin id, e.g. "rat-storage-s3"
+  string version = 2;          // plugin version
+  repeated string schemes = 3;  // storage schemes served, e.g. ["s3"]
+}
+
+message VendDescriptorRequest {
+  string scheme = 1;                // requested scheme (e.g. "s3")
+  string location = 2;              // logical location/bucket hint (e.g. "rat")
+  map<string, string> options = 3;  // per-request overrides
+}
+
+message VendDescriptorResponse {
+  ratatouille.common.v1.StorageDescriptor descriptor = 1;  // ready-to-use storage descriptor
+}
+
+message ListObjectsRequest {
+  ratatouille.common.v1.StorageDescriptor descriptor = 1;  // storage to list within
+  string prefix = 2;                                       // key prefix to list under
+}
+
+message ListObjectsResponse {
+  repeated string keys = 1;  // object keys found under the prefix
+}
+
+message MoveObjectsRequest {
+  ratatouille.common.v1.StorageDescriptor descriptor = 1;  // storage to operate within
+  repeated string source_keys = 2;                         // object keys to move
+  string dest_prefix = 3;                                  // destination prefix (e.g. archival path)
+}
+
+message MoveObjectsResponse {
+  int64 moved = 1;  // number of objects moved
+}

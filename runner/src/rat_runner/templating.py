@@ -78,8 +78,15 @@ def compile_sql(
     watermark_value: str | None = None,
     landing_zone_fn: Callable[[str], str] | None = None,
     plugin_helpers: dict[str, Callable[..., object]] | None = None,
+    logical_refs: bool = False,
 ) -> str:
     """Compile a Jinja SQL template with ref() resolution.
+
+    With ``logical_refs=True``, ref()/this resolve to an engine-neutral
+    ``"layer"."name"`` identifier with NO catalog I/O — the decoupled engine path
+    (ADR-024), where the engine maps each logical name to a native scan via the
+    input TableDescriptor. Otherwise they resolve to ``iceberg_scan()`` via the
+    catalog (the legacy in-process path).
 
     Available in templates:
     - ref('layer.name') or ref('ns.layer.name') — resolves to iceberg_scan() via catalog
@@ -91,6 +98,8 @@ def compile_sql(
     run_started_at = datetime.now(UTC).isoformat()
 
     def ref_fn(table_ref: str) -> str:
+        if logical_refs:
+            return _logical_ref(table_ref)
         return _resolve_ref(table_ref, namespace, s3_config, nessie_config)
 
     if landing_zone_fn is None:
@@ -198,6 +207,24 @@ def _resolve_ref(
         table_path = f"s3://{s3_config.bucket}/{ref_ns}/{ref_layer}/{ref_name}/"
         safe_path = _escape_sql_string(table_path)
         return f"iceberg_scan('{safe_path}', allow_moved_paths = true)"
+
+
+def _logical_ref(table_ref: str) -> str:
+    """Resolve ref('layer.name' | 'ns.layer.name') to an engine-neutral "layer"."name".
+
+    Used for the decoupled engine path (ADR-024): the runner emits logical names and
+    the engine maps each to a native scan via the input TableDescriptor — no catalog
+    I/O at compile time. (Namespace-qualified resolution is a follow-on; the engine
+    currently registers input views by layer.name.)
+    """
+    parts = table_ref.split(".", 2)
+    if len(parts) == 2:
+        layer, name = parts
+    elif len(parts) == 3:
+        _, layer, name = parts
+    else:
+        raise ValueError(f"Invalid ref: '{table_ref}'. Expected 'layer.name' or 'ns.layer.name'.")
+    return f'"{layer}"."{name}"'
 
 
 def validate_landing_zones(

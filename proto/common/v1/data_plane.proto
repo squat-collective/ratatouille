@@ -1,0 +1,59 @@
+syntax = "proto3";
+package ratatouille.common.v1;
+
+option go_package = "github.com/rat-data/rat/platform/gen/common/v1;commonv1";
+
+import "common/v1/common.proto";
+
+// Field reservation policy: see common/v1/common.proto.
+// When removing fields, always add `reserved` for both the number and name.
+
+// ============================================================================
+// DATA-PLANE DESCRIPTORS
+// ============================================================================
+//
+// Descriptors are the cross-axis "glue" values the orchestrator (runner) hands
+// to an engine so it can do its OWN catalog + storage I/O. Plugins exchange these
+// values and speak native protocols -- they never import one another.
+//
+// Capability/format/language/protocol identifiers are OPEN-SET STRINGS (not
+// enums) on purpose: the whole point of the decoupled architecture is that a
+// third-party plugin can declare a new engine, format, catalog, or language
+// WITHOUT a core proto change. The runner matches by string equality at plan
+// time. (Genuinely-closed sets like Layer/RunStatus stay enums in common.proto.)
+// ============================================================================
+
+// TableRef is the engine-neutral logical identity of a table.
+message TableRef {
+  string namespace = 1;  // tenant/namespace (e.g. "default", "ecommerce")
+  Layer layer = 2;       // medallion tier (bronze/silver/gold)
+  string name = 3;       // table name within namespace+layer
+}
+
+// CatalogDescriptor tells an engine how to reach a catalog over its NATIVE
+// protocol (e.g. Iceberg REST). The engine reads metadata and commits through
+// this directly -- it is NOT proxied through catalog/v1 (the control plane).
+message CatalogDescriptor {
+  string protocol = 1;              // native protocol id, e.g. "iceberg-rest", "unity", "ducklake-sql"
+  string uri = 2;                   // catalog endpoint (e.g. "http://nessie:19120/iceberg")
+  string branch = 3;                // catalog branch/ref to operate on (e.g. "main", "run-<uuid>")
+  map<string, string> options = 4;  // protocol-specific extras (warehouse, prefix, headers, ...)
+}
+
+// StorageDescriptor tells an engine how to reach object storage over its native API.
+message StorageDescriptor {
+  string scheme = 1;                // "s3", "gcs", "adls", "file"
+  S3Credentials s3 = 2;             // populated when scheme == "s3" (MinIO/AWS-compatible)
+  map<string, string> options = 3;  // scheme-specific extras (path-style, project, account, ...)
+}
+
+// TableDescriptor is the full composition for one table: which catalog + storage
+// + format, plus the catalog-native identifier. This is everything an engine needs
+// to read or write a table without knowing anything about RAT's plugin axes.
+message TableDescriptor {
+  TableRef ref = 1;               // engine-neutral logical identity
+  string format = 2;              // table format id: "iceberg", "delta", "ducklake", "parquet", "native"
+  string identifier = 3;          // catalog-native identifier (e.g. "ns.layer.name", or a metadata path)
+  CatalogDescriptor catalog = 4;  // how to reach the catalog
+  StorageDescriptor storage = 5;  // how to reach the bytes
+}

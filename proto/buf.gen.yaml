@@ -28,6 +28,12 @@ plugins:
     out: ../query/src/rat_query/gen
   - remote: buf.build/grpc/python
     out: ../query/src/rat_query/gen
+  # Python (rat-engine-duckdb reference engine plugin) — same v33 pin. Reference
+  # services live in plugins/ and vendor their own gen/ on sys.path (like runner).
+  - remote: buf.build/protocolbuffers/python:v33.0
+    out: ../plugins/rat-engine-duckdb/src/rat_engine_duckdb/gen
+  - remote: buf.build/grpc/python
+    out: ../plugins/rat-engine-duckdb/src/rat_engine_duckdb/gen
   # TypeScript (SDK + portal)
   - remote: buf.build/connectrpc/es
     out: ../sdk-typescript/src/gen

@@ -236,6 +236,7 @@ proto: ## Generate Go + Python code from proto files
 		-v $$(pwd)/platform:/workspace/platform \
 		-v $$(pwd)/runner:/workspace/runner \
 		-v $$(pwd)/query:/workspace/query \
+		-v $$(pwd)/plugins:/workspace/plugins \
 		-w /workspace/proto \
 		$(PROTO_IMAGE) generate
 	@echo "✅ Proto generated"

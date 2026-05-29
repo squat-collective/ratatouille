@@ -1,0 +1,92 @@
+syntax = "proto3";
+package ratatouille.engine.v1;
+
+option go_package = "github.com/rat-data/rat/platform/gen/engine/v1;enginev1";
+
+import "common/v1/common.proto";
+import "common/v1/data_plane.proto";
+
+// Field reservation policy: see common/v1/common.proto.
+// When removing fields, always add `reserved` for both the number and name.
+
+// EngineService is the pluggable COMPUTE axis. It receives a compiled job + input
+// and output table descriptors and does ALL data-plane work itself: resolves
+// logical refs to native scans, executes the transform, applies the merge-strategy
+// recipe (resolved internally for its own (engine,format) pair), and commits via
+// the catalog's native protocol. The orchestrator (runner) never sees table bytes.
+// Implemented by engine plugins (e.g. rat-engine-duckdb). Called by the runner.
+service EngineService {
+  // Report identity + executable languages/formats/capabilities/dialects (open-set strings).
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+
+  // Execute a transform and WRITE the output table. Streams log lines, then a
+  // single terminal result. Strategy is dispatched inside the engine.
+  rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
+
+  // Read-only query (quality tests, ratq, ad-hoc). Streams Arrow IPC chunks.
+  rpc Query(QueryRequest) returns (stream QueryResponse);
+
+  // Editor preview: run a transform WITHOUT writing; return a sample.
+  rpc Preview(PreviewRequest) returns (PreviewResponse);
+}
+
+message DescribeRequest {}
+
+message DescribeResponse {
+  string name = 1;                   // plugin id, e.g. "rat-engine-duckdb"
+  string version = 2;                // plugin version
+  repeated string languages = 3;     // executable languages, e.g. ["sql","python"]
+  repeated string formats = 4;       // table formats it can read/write, e.g. ["iceberg"]
+  repeated string capabilities = 5;  // open-set: "preview","explain","streaming"
+  repeated string dialects = 6;      // SQL dialects, e.g. ["duckdb"] (empty if N/A)
+}
+
+message ExecuteRequest {
+  string run_id = 1;                                          // ratd-owned run UUID (for logs/tracing)
+  string language = 2;                                        // "sql" | "python" | ...
+  string dialect = 3;                                         // SQL dialect hint (e.g. "duckdb"); empty if N/A
+  string source = 4;                                          // compiled transform source (Jinja already rendered)
+  repeated ratatouille.common.v1.TableDescriptor inputs = 5;  // input tables (logical refs -> native handles)
+  ratatouille.common.v1.TableDescriptor output = 6;           // target table to write
+  string strategy = 7;                                        // universal strategy name: "scd2","snapshot","full_refresh",...
+  map<string, string> options = 8;                            // strategy + template options (unique_key, partition_column, scd_*, watermark, vars)
+}
+
+message ExecuteResponse {
+  oneof event {
+    ratatouille.common.v1.LogEntry log = 1;  // a streamed log line
+    ExecuteResult result = 2;                // terminal result (last message on the stream)
+  }
+}
+
+message ExecuteResult {
+  int64 rows_written = 1;   // rows written to the output table
+  bytes output_schema = 2;  // Arrow IPC schema of the written output
+  string error = 3;         // error message ("" on success)
+}
+
+message QueryRequest {
+  string language = 1;                                        // "sql" | ...
+  string dialect = 2;                                         // SQL dialect hint; empty if N/A
+  string source = 3;                                          // query source
+  repeated ratatouille.common.v1.TableDescriptor inputs = 4;  // tables referenced by the query
+  int64 limit = 5;                                            // optional row cap (0 = engine default)
+}
+
+message QueryResponse {
+  bytes arrow_ipc = 1;  // an Arrow IPC stream chunk of the result
+}
+
+message PreviewRequest {
+  string language = 1;                                        // "sql" | "python" | ...
+  string dialect = 2;                                         // SQL dialect hint; empty if N/A
+  string source = 3;                                          // transform source to preview (not written)
+  repeated ratatouille.common.v1.TableDescriptor inputs = 4;  // input tables
+  int64 limit = 5;                                            // max preview rows
+}
+
+message PreviewResponse {
+  bool success = 1;     // whether the preview ran
+  bytes arrow_ipc = 2;  // Arrow IPC sample (when success)
+  string error = 3;     // error message (when !success)
+}

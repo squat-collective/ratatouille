@@ -221,6 +221,39 @@ class NessieConfig:
         return self._host_url + "/api/v2"
 
 
+@dataclass(frozen=True)
+class EngineConfig:
+    """Address of the compute engine service (engine/v1). See ADR-024."""
+
+    addr: str = "engine:50081"
+
+    @classmethod
+    def from_env(cls) -> EngineConfig:
+        return cls(addr=os.environ.get("ENGINE_ADDR", "engine:50081"))
+
+
+@dataclass(frozen=True)
+class CatalogConfig:
+    """Address of the catalog service (catalog/v1). See ADR-024."""
+
+    addr: str = "catalog:50082"
+
+    @classmethod
+    def from_env(cls) -> CatalogConfig:
+        return cls(addr=os.environ.get("CATALOG_ADDR", "catalog:50082"))
+
+
+@dataclass(frozen=True)
+class StorageConfig:
+    """Address of the storage service (storage/v1). See ADR-024."""
+
+    addr: str = "storage:50083"
+
+    @classmethod
+    def from_env(cls) -> StorageConfig:
+        return cls(addr=os.environ.get("STORAGE_ADDR", "storage:50083"))
+
+
 def validate_pipeline_config(
     data: dict[str, object],
     known_strategies: Iterable[str] | None = None,
