@@ -21,8 +21,7 @@ if TYPE_CHECKING:
     import duckdb
     import pyarrow as pa
 
-    from rat_engine_duckdb.config import NessieConfig, S3Config
-    from rat_engine_duckdb.config import PipelineConfig
+    from rat_engine_duckdb.config import NessieConfig, PipelineConfig, S3Config
 
 
 class FullRefreshStrategy:

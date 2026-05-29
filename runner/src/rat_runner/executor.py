@@ -12,18 +12,25 @@ Execution flow:
 from __future__ import annotations
 
 import logging
+import os
 import time
 import urllib.error
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import pyarrow as pa
 
+from engine.v1 import engine_pb2  # type: ignore[import-untyped]
+
+from rat_runner.bindings import BindingConfig, DataPlane
 from rat_runner.config import (
+    CatalogConfig,
     DuckDBConfig,
+    EngineConfig,
     NessieConfig,
     S3Config,
+    StorageConfig,
     list_s3_keys,
     merge_configs,
     move_s3_keys,
@@ -31,7 +38,9 @@ from rat_runner.config import (
     read_s3_text,
     read_s3_text_version,
 )
+from rat_runner.descriptors import build_table_descriptor, layer_enum
 from rat_runner.engine import DuckDBEngine
+from rat_runner.engine_client import EngineClient
 from rat_runner.failed_merge_audit import record_failed_merge
 from rat_runner.iceberg import (
     append_iceberg,
@@ -60,6 +69,7 @@ from rat_runner.python_exec import execute_python_pipeline
 from rat_runner.quality import has_error_failures, run_quality_tests
 from rat_runner.templating import (
     compile_sql,
+    extract_dependencies,
     extract_landing_zones,
     extract_metadata,
     validate_landing_zones,
@@ -117,6 +127,9 @@ class _PipelineContext:
     # into main. An operator will recover it manually via the
     # `failed_merges` audit row.
     retain_branch: bool = False
+
+    # Engine mode: the resolved data-plane composition (set before Phase 0).
+    data_plane: DataPlane | None = None
 
 
 def _archive_landing_zones(
@@ -709,6 +722,146 @@ def _build_hook_context(ctx: _PipelineContext) -> HookContext:
     )
 
 
+def _engine_mode() -> bool:
+    """Transitional opt-in for the decoupled engine path (ADR-024); removed in #10."""
+    return os.environ.get("RAT_ENGINE_MODE", "").lower() in ("1", "true", "yes")
+
+
+def _parse_ref(table_ref: str, default_ns: str) -> tuple[str, str, str]:
+    """Split a ref into (namespace, layer, name); 2-part refs take the default namespace."""
+    parts = table_ref.split(".", 2)
+    if len(parts) == 2:
+        return default_ns, parts[0], parts[1]
+    if len(parts) == 3:
+        return parts[0], parts[1], parts[2]
+    raise ValueError(f"Invalid ref '{table_ref}': expected 'layer.name' or 'ns.layer.name'")
+
+
+def _build_engine_options(config: PipelineConfig | None) -> dict[str, str]:
+    """Project the strategy-relevant PipelineConfig fields into the engine options map."""
+    opts: dict[str, str] = {}
+    if config is None:
+        return opts
+    if config.unique_key:
+        opts["unique_key"] = ",".join(config.unique_key)
+    if config.partition_column:
+        opts["partition_column"] = config.partition_column
+    if config.scd_valid_from:
+        opts["scd_valid_from"] = config.scd_valid_from
+    if config.scd_valid_to:
+        opts["scd_valid_to"] = config.scd_valid_to
+    if config.partition_by:
+        opts["partition_by"] = ",".join(f"{e.column}:{e.transform}" for e in config.partition_by)
+    return opts
+
+
+def _resolve_data_plane(ctx: _PipelineContext) -> DataPlane:
+    """Resolve the data-plane binding for this run (pipeline > layer > namespace > default)."""
+    binding = BindingConfig.load(
+        os.environ.get("RAT_BINDINGS"),
+        engine_addr=EngineConfig.from_env().addr,
+        catalog_addr=CatalogConfig.from_env().addr,
+        storage_addr=StorageConfig.from_env().addr,
+    )
+    return binding.resolve(ctx.run.namespace, ctx.run.layer, ctx.run.pipeline_name)
+
+
+def _phase_engine_execute(ctx: _PipelineContext) -> None:
+    """Decoupled path (ADR-024): execute + write via engine/v1, replacing local phases 2+3.
+
+    The runner compiles logical-ref SQL (or passes Python through) and assembles input/
+    output TableDescriptors, then calls the bound engine, which reads inputs, transforms,
+    applies the strategy recipe, and commits to the run branch — the runner never touches
+    table bytes. Branch ops (phase 0/5) + quality (phase 4) still run locally for now.
+    """
+    _check_cancelled(ctx.run)
+    ns, layer, name = ctx.run.namespace, ctx.run.layer, ctx.run.pipeline_name
+    ctx.table_name = f"{ns}.{layer}.{name}"
+    ctx.location = f"s3://{ctx.s3_config.bucket}/{ns}/{layer}/{name}/"
+
+    # Phase 4 (quality) still runs locally for now and needs a DuckDB engine to read
+    # the freshly written branch table. TODO(#10): route quality via engine.Query and
+    # drop the runner's embedded DuckDB entirely.
+    if ctx.engine is None:
+        ctx.engine = DuckDBEngine(ctx.s3_config)
+
+    plane = ctx.data_plane if ctx.data_plane is not None else _resolve_data_plane(ctx)
+    ctx.log.info(
+        f"Engine mode: data_plane '{plane.name}' engine={plane.engine_addr} format={plane.format}"
+    )
+
+    if ctx.pipeline_type == "sql":
+        language = "sql"
+        helpers = dict(ctx.registry.get_helpers())
+        source = compile_sql(
+            ctx.raw_sql,  # type: ignore[arg-type]
+            ns,
+            layer,
+            name,
+            ctx.s3_config,
+            ctx.nessie_config,
+            config=ctx.config,
+            plugin_helpers=helpers or None,
+            logical_refs=True,
+        )
+        raw_for_deps = ctx.raw_sql or ""
+    elif ctx.pipeline_type == "python":
+        language = "python"
+        source = ctx.raw_py or ""
+        raw_for_deps = source
+    else:
+        raise RuntimeError(
+            f"Engine mode supports 'sql'/'python' pipelines; got '{ctx.pipeline_type}'"
+        )
+
+    inputs: list[Any] = []
+    for dep in extract_dependencies(raw_for_deps):
+        dep_ns, dep_layer, dep_name = _parse_ref(dep, ns)
+        inputs.append(
+            build_table_descriptor(
+                dep_ns,
+                layer_enum(dep_layer),
+                dep_name,
+                plane,
+                ctx.nessie_config,
+                ctx.s3_config,
+                branch="main",
+            )
+        )
+    output = build_table_descriptor(
+        ns,
+        layer_enum(layer),
+        name,
+        plane,
+        ctx.nessie_config,
+        ctx.s3_config,
+        branch=ctx.branch_name,
+    )
+
+    strategy = str(ctx.config.merge_strategy) if ctx.config else "full_refresh"
+    request = engine_pb2.ExecuteRequest(
+        run_id=ctx.run.run_id,
+        language=language,
+        dialect="duckdb",
+        source=source,
+        inputs=inputs,
+        output=output,
+        strategy=strategy,
+        options=_build_engine_options(ctx.config),
+    )
+
+    ctx.log.info(f"Executing via engine ({language}, strategy={strategy}, {len(inputs)} inputs)")
+    client = EngineClient(plane.engine_addr)
+    try:
+        result = client.execute(request)
+    finally:
+        client.close()
+
+    ctx.run.rows_written = result.rows_written
+    ctx.row_count = result.rows_written
+    ctx.log.info(f"Engine wrote {result.rows_written} rows")
+
+
 def execute_pipeline(
     run: RunState,
     s3_config: S3Config,
@@ -759,20 +912,36 @@ def execute_pipeline(
     )
 
     try:
-        _phase0_create_branch(ctx)
+        branching = True
+        if _engine_mode():
+            ctx.data_plane = _resolve_data_plane(ctx)
+            branching = ctx.data_plane.format == "iceberg"
+
+        if branching:
+            _phase0_create_branch(ctx)
+        else:
+            ctx.branch_name = "main"
+            ctx.log.info(
+                f"Catalog format '{ctx.data_plane.format}' has no branching — "
+                "writing directly (no ephemeral branch)"
+            )
         _phase1_detect_and_load(ctx)
 
         # Dispatch pre_execute hooks
         hook_ctx = _build_hook_context(ctx)
         registry.dispatch_hooks("pre_execute", hook_ctx)
 
-        _phase2_build_result(ctx)
+        if _engine_mode():
+            # Decoupled path (ADR-024): execute + write happen in one engine/v1 call.
+            _phase_engine_execute(ctx)
+        else:
+            _phase2_build_result(ctx)
 
-        # Dispatch pre_write hooks
-        hook_ctx = _build_hook_context(ctx)
-        registry.dispatch_hooks("pre_write", hook_ctx)
+            # Dispatch pre_write hooks
+            hook_ctx = _build_hook_context(ctx)
+            registry.dispatch_hooks("pre_write", hook_ctx)
 
-        _phase3_write_iceberg(ctx)
+            _phase3_write_iceberg(ctx)
 
         # Dispatch post_write hooks
         hook_ctx = _build_hook_context(ctx)
@@ -788,7 +957,14 @@ def execute_pipeline(
         hook_ctx = _build_hook_context(ctx)
         registry.dispatch_hooks("post_quality", hook_ctx)
 
-        _phase5_resolve_branch(ctx, quality_results)
+        if branching:
+            _phase5_resolve_branch(ctx, quality_results)
+        elif has_error_failures(quality_results):
+            ctx.run.status = RunStatus.FAILED
+            ctx.run.error = _format_quality_error(quality_results)
+        else:
+            ctx.run.status = RunStatus.SUCCESS
+            ctx.log.info("Pipeline completed successfully")
 
         # Dispatch post_execute hooks
         hook_ctx = _build_hook_context(ctx)

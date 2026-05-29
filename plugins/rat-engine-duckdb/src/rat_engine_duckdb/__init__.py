@@ -1,3 +1,3 @@
-"""rat-engine-duckdb — DuckDB compute engine (engine/v1) for RAT's decoupled data architecture (ADR-024)."""
+"""rat-engine-duckdb — DuckDB compute engine (engine/v1) for RAT (ADR-024)."""
 
 __version__ = "0.2.0b1"

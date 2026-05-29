@@ -11,9 +11,8 @@ The runner never touches table bytes.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterator
 from concurrent import futures
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import grpc
 import pyarrow as pa
@@ -35,6 +34,7 @@ from rat_engine_duckdb.adapters import (
 )
 from rat_engine_duckdb.config import S3Config
 from rat_engine_duckdb.duckdb_engine import DuckDBEngine
+from rat_engine_duckdb.formats import ducklake
 from rat_engine_duckdb.formats.iceberg import (
     _configure_s3,
     _escape_sql_string,
@@ -51,13 +51,16 @@ from rat_engine_duckdb.strategies import (
     SnapshotStrategy,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 _logger = logging.getLogger("rat_engine_duckdb.server")
 
 GRPC_MAX_WORKERS = 10
 
 # Engine capabilities reported via Describe — open-set strings per ADR-024.
 _LANGUAGES = ["sql", "python"]
-_FORMATS = ["iceberg"]
+_FORMATS = ["iceberg", "ducklake"]
 _CAPABILITIES = ["preview", "explain"]
 _DIALECTS = ["duckdb"]
 
@@ -118,6 +121,47 @@ def _execute_error(message: str) -> Any:
     return engine_pb2.ExecuteResponse(result=engine_pb2.ExecuteResult(error=message))
 
 
+def _execute_iceberg(engine: DuckDBEngine, request: Any) -> tuple[int, Any]:
+    """The (duckdb, iceberg) path: register input views, run the transform, apply the strategy."""
+    out = request.output
+    language = request.language or "sql"
+    if language not in ("sql", "python"):
+        raise RuntimeError(f"unsupported language {language!r}")
+    strategy = _STRATEGIES.get(request.strategy or "full_refresh")
+    if strategy is None:
+        raise RuntimeError(f"unknown strategy {request.strategy!r}")
+    s3 = s3_config_from_storage(out.storage)
+    nessie = nessie_config_from_catalog(out.catalog)
+    branch = out.catalog.branch or "main"
+    cfg = pipeline_config_from_options(request.options, request.strategy or "full_refresh")
+    if language == "sql":
+        _register_inputs(engine.conn, request.inputs)
+        result = engine.query_arrow(request.source)
+    else:
+        _configure_s3(engine.conn, s3)
+        result = execute_python_pipeline(
+            request.source,
+            engine,
+            out.ref.namespace,
+            layer_name(out.ref.layer),
+            out.ref.name,
+            s3,
+            nessie,
+            config=cfg,
+        )
+    rows = strategy.execute(
+        result,
+        table_identifier(out),
+        s3,
+        nessie,
+        table_location(out),
+        cfg,
+        branch=branch,
+        conn=engine.conn,
+    )
+    return rows, result.schema
+
+
 class EngineServicer(engine_pb2_grpc.EngineServiceServicer):
     """DuckDB implementation of engine/v1."""
 
@@ -132,51 +176,21 @@ class EngineServicer(engine_pb2_grpc.EngineServiceServicer):
         )
 
     def Execute(self, request: Any, context: grpc.ServicerContext) -> Iterator[Any]:  # noqa: N802
-        language = request.language or "sql"
-        if language not in ("sql", "python"):
-            yield _execute_error(f"rat-engine-duckdb cannot execute language {language!r}")
-            return
-        strategy = _STRATEGIES.get(request.strategy or "full_refresh")
-        if strategy is None:
-            yield _execute_error(f"unknown strategy {request.strategy!r}")
-            return
+        fmt = request.output.format or "iceberg"
         try:
-            out = request.output
-            s3 = s3_config_from_storage(out.storage)
-            nessie = nessie_config_from_catalog(out.catalog)
-            branch = out.catalog.branch or "main"
-            cfg = pipeline_config_from_options(request.options, request.strategy or "full_refresh")
-            engine = DuckDBEngine(s3)
+            engine = DuckDBEngine(s3_config_from_storage(request.output.storage))
             try:
-                if language == "sql":
-                    _register_inputs(engine.conn, request.inputs)
-                    result = engine.query_arrow(request.source)
-                else:  # python
-                    _configure_s3(engine.conn, s3)
-                    result = execute_python_pipeline(
-                        request.source,
-                        engine,
-                        out.ref.namespace,
-                        layer_name(out.ref.layer),
-                        out.ref.name,
-                        s3,
-                        nessie,
-                        config=cfg,
-                    )
-                rows = strategy.execute(
-                    result,
-                    table_identifier(out),
-                    s3,
-                    nessie,
-                    table_location(out),
-                    cfg,
-                    branch=branch,
-                    conn=engine.conn,
-                )
+                if fmt == "ducklake":
+                    rows, schema = ducklake.execute_ducklake(engine.conn, request)
+                elif fmt == "iceberg":
+                    rows, schema = _execute_iceberg(engine, request)
+                else:
+                    yield _execute_error(f"rat-engine-duckdb has no adapter for format {fmt!r}")
+                    return
                 yield engine_pb2.ExecuteResponse(
                     result=engine_pb2.ExecuteResult(
                         rows_written=rows,
-                        output_schema=_schema_to_ipc(result.schema),
+                        output_schema=_schema_to_ipc(schema),
                         error="",
                     )
                 )
