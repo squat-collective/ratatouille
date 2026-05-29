@@ -6,7 +6,9 @@ from types import SimpleNamespace
 import pytest
 
 from rat_query import composition
-from rat_query.config import CompositionConfig
+from rat_query.bindings import BindingConfig
+
+_BINDING = BindingConfig.single_default(engine_addr="e:1", catalog_addr="c:2", storage_addr="s:3")
 
 
 class TestExtractRefs:
@@ -88,7 +90,7 @@ class TestListTables:
                 "shop": [("shop", 2, "items")],
             },
         )
-        assert composition.list_tables(CompositionConfig()) == [
+        assert composition.list_tables(_BINDING) == [
             ("default", "bronze", "orders"),
             ("shop", "silver", "items"),
         ]
@@ -99,6 +101,6 @@ class TestListTables:
             namespaces=["default", "shop"],  # should be ignored
             tables_by_ns={"default": [("default", 3, "revenue")]},
         )
-        assert composition.list_tables(CompositionConfig(), namespace="default") == [
+        assert composition.list_tables(_BINDING, namespace="default") == [
             ("default", "gold", "revenue")
         ]

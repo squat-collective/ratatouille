@@ -20,6 +20,7 @@ from query.v1 import (
 
 from rat_query import composition
 from rat_query.arrow_ipc import columns_from_schema, table_to_ipc
+from rat_query.bindings import BindingConfig
 from rat_query.catalog import NessieCatalog
 from rat_query.config import (
     CompositionConfig,
@@ -91,9 +92,18 @@ class QueryServiceImpl(query_pb2_grpc.QueryServiceServicer):
         # (format-agnostic reads). GetSchema/PreviewTable/ListTables stay on the
         # local engine + Nessie catalog for now (follow-on).
         self._engine_mode = engine_mode()
-        self._composition = CompositionConfig.from_env()
+        cc = CompositionConfig.from_env()
+        self._binding = BindingConfig.load(
+            os.environ.get("RAT_BINDINGS"),
+            engine_addr=cc.engine_addr,
+            catalog_addr=cc.catalog_addr,
+            storage_addr=cc.storage_addr,
+        )
         if self._engine_mode:
-            logger.info("ratq engine mode ON — ExecuteQuery routes through engine/v1")
+            logger.info(
+                "ratq engine mode ON — reads route through engine/v1 (%d data planes)",
+                len(self._binding.data_planes),
+            )
 
         # Initial discovery + registration. register_all_tables enumerates
         # every namespace Nessie knows about; passing the constructor's
@@ -130,7 +140,7 @@ class QueryServiceImpl(query_pb2_grpc.QueryServiceServicer):
         try:
             start = time.monotonic()
             if self._engine_mode:
-                table = composition.run_query(sql, limit, self._composition, self._s3_config.bucket)
+                table = composition.run_query(sql, limit, self._binding, self._s3_config.bucket)
             else:
                 table = self._engine.query_arrow(sql, limit)
             duration_ms = int((time.monotonic() - start) * 1000)
@@ -275,7 +285,7 @@ class QueryServiceImpl(query_pb2_grpc.QueryServiceServicer):
         # GetSchema for individual table row counts when needed.
         if self._engine_mode:
             # Discovery via catalog/v1 (ADR-024 #12) instead of ratq's own Nessie client.
-            rows = composition.list_tables(self._composition, namespace, layer_filter)
+            rows = composition.list_tables(self._binding, namespace, layer_filter)
             table_infos = [
                 query_pb2.TableInfo(
                     namespace=ns,
