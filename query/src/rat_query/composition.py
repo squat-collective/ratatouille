@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from rat_query.config import CompositionConfig
 
 _LAYER_ENUMS = {"bronze": 1, "silver": 2, "gold": 3}
+_LAYER_NAMES = {num: name for name, num in _LAYER_ENUMS.items()}
 
 # 3-part ref ns.layer.name, tolerant of double-quoted parts (default.bronze.orders
 # or "default"."bronze"."orders"). The middle part must be a medallion layer.
@@ -58,6 +59,31 @@ def extract_refs(sql: str) -> list[tuple[str, str, str]]:
         if key not in seen:
             seen.add(key)
             out.append(key)
+    return out
+
+
+def list_tables(
+    cfg: CompositionConfig, namespace: str = "", layer_filter: str = ""
+) -> list[tuple[str, str, str]]:
+    """List ``(namespace, layer, name)`` via catalog/v1 discovery.
+
+    With ``namespace=""`` it first enumerates namespaces (ListNamespaces), then
+    lists tables in each — so ratq's listing comes from the catalog axis instead
+    of ratq speaking Nessie's REST API itself.
+    """
+    layer_enum = _LAYER_ENUMS.get(layer_filter, 0)
+    out: list[tuple[str, str, str]] = []
+    with grpc.insecure_channel(cfg.catalog_addr) as cat_ch:
+        catalog = catalog_pb2_grpc.CatalogServiceStub(cat_ch)
+        if namespace:
+            namespaces = [namespace]
+        else:
+            resp = catalog.ListNamespaces(catalog_pb2.ListNamespacesRequest(parent=""))
+            namespaces = list(resp.namespaces)
+        for ns in namespaces:
+            resp = catalog.ListTables(catalog_pb2.ListTablesRequest(namespace=ns, layer=layer_enum))
+            for ref in resp.tables:
+                out.append((ref.namespace, _LAYER_NAMES.get(ref.layer, ""), ref.name))
     return out
 
 

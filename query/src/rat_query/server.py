@@ -270,14 +270,25 @@ class QueryServiceImpl(query_pb2_grpc.QueryServiceServicer):
         namespace = request.namespace
         layer_filter = _LAYER_MAP.get(request.layer, "")
 
-        tables = self._catalog.get_tables(namespace, layer_filter)
-
         # Row counts are omitted from ListTables to avoid N sequential
         # SELECT COUNT(*) queries (one per table). Clients should use
         # GetSchema for individual table row counts when needed.
-        table_infos = []
-        for t in tables:
-            table_infos.append(
+        if self._engine_mode:
+            # Discovery via catalog/v1 (ADR-024 #12) instead of ratq's own Nessie client.
+            rows = composition.list_tables(self._composition, namespace, layer_filter)
+            table_infos = [
+                query_pb2.TableInfo(
+                    namespace=ns,
+                    layer=_str_to_layer(layer),
+                    name=name,
+                    row_count=0,
+                    size_bytes=0,
+                )
+                for ns, layer, name in rows
+            ]
+        else:
+            tables = self._catalog.get_tables(namespace, layer_filter)
+            table_infos = [
                 query_pb2.TableInfo(
                     namespace=t.namespace,
                     layer=_str_to_layer(t.layer),
@@ -285,7 +296,8 @@ class QueryServiceImpl(query_pb2_grpc.QueryServiceServicer):
                     row_count=0,
                     size_bytes=0,
                 )
-            )
+                for t in tables
+            ]
 
         return query_pb2.ListTablesResponse(tables=table_infos)
 

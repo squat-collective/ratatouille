@@ -1,8 +1,12 @@
 """Unit tests for the engine-backed read path (ref extraction + security guards)."""
 
+from contextlib import contextmanager
+from types import SimpleNamespace
+
 import pytest
 
 from rat_query import composition
+from rat_query.config import CompositionConfig
 
 
 class TestExtractRefs:
@@ -50,3 +54,51 @@ class TestCheckSecurity:
     def test_blocks_overlong_query(self):
         with pytest.raises(ValueError, match="too long"):
             composition._check_security("SELECT 1 -- " + "x" * 200_000)
+
+
+class TestListTables:
+    def _patch_catalog(self, monkeypatch, *, namespaces, tables_by_ns):
+        class FakeStub:
+            def __init__(self, _channel):
+                pass
+
+            def ListNamespaces(self, _req):  # noqa: N802
+                return SimpleNamespace(namespaces=namespaces)
+
+            def ListTables(self, req):  # noqa: N802
+                refs = [
+                    SimpleNamespace(namespace=ns, layer=layer, name=name)
+                    for ns, layer, name in tables_by_ns.get(req.namespace, [])
+                ]
+                return SimpleNamespace(tables=refs)
+
+        @contextmanager
+        def fake_channel(_addr):
+            yield object()
+
+        monkeypatch.setattr(composition.catalog_pb2_grpc, "CatalogServiceStub", FakeStub)
+        monkeypatch.setattr(composition.grpc, "insecure_channel", fake_channel)
+
+    def test_enumerates_all_namespaces(self, monkeypatch):
+        self._patch_catalog(
+            monkeypatch,
+            namespaces=["default", "shop"],
+            tables_by_ns={
+                "default": [("default", 1, "orders")],
+                "shop": [("shop", 2, "items")],
+            },
+        )
+        assert composition.list_tables(CompositionConfig()) == [
+            ("default", "bronze", "orders"),
+            ("shop", "silver", "items"),
+        ]
+
+    def test_single_namespace_skips_enumeration(self, monkeypatch):
+        self._patch_catalog(
+            monkeypatch,
+            namespaces=["default", "shop"],  # should be ignored
+            tables_by_ns={"default": [("default", 3, "revenue")]},
+        )
+        assert composition.list_tables(CompositionConfig(), namespace="default") == [
+            ("default", "gold", "revenue")
+        ]
