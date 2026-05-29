@@ -25,14 +25,20 @@ if TYPE_CHECKING:
 _LAYER_NAMES = {1: "bronze", 2: "silver", 3: "gold"}
 
 
-def _attach_lake(conn: Any, catalog: Any, storage: Any) -> None:
-    """Load the ducklake + postgres extensions and ATTACH the lake as `lake`."""
+def attach_lake(conn: Any, catalog: Any, storage: Any, *, use: bool = True) -> None:
+    """Load the ducklake + postgres extensions and ATTACH the lake as `lake`.
+
+    ``use=True`` makes `lake` the default catalog (for writes); input registration
+    passes ``use=False`` so it can keep creating views in the default catalog.
+    """
     data_path = catalog.options.get("data_path") or f"s3://{storage.s3.bucket}/ducklake/"
     conn.execute("INSTALL ducklake; LOAD ducklake;")
     conn.execute("INSTALL postgres; LOAD postgres;")
     target = _escape_sql_string(f"ducklake:{catalog.uri}")
-    conn.execute(f"ATTACH '{target}' AS lake (DATA_PATH '{_escape_sql_string(data_path)}')")
-    conn.execute("USE lake")
+    path = _escape_sql_string(data_path)
+    conn.execute(f"ATTACH IF NOT EXISTS '{target}' AS lake (DATA_PATH '{path}')")
+    if use:
+        conn.execute("USE lake")
 
 
 def execute_ducklake(conn: Any, request: Any) -> tuple[int, pa.Schema]:
@@ -48,7 +54,7 @@ def execute_ducklake(conn: Any, request: Any) -> tuple[int, pa.Schema]:
     # (with the supported list) for a strategy ducklake doesn't implement yet.
     strategy_matrix.require_supported("ducklake", request.strategy or "full_refresh")
 
-    _attach_lake(conn, out.catalog, out.storage)
+    attach_lake(conn, out.catalog, out.storage)
     layer = _quote_identifier(_LAYER_NAMES.get(out.ref.layer, "main"))
     name = _quote_identifier(out.ref.name)
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {layer}")

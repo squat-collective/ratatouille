@@ -71,35 +71,62 @@ def _table_to_ipc(table: pa.Table) -> bytes:
     return sink.getvalue().to_pybytes()
 
 
-def _register_inputs(conn: Any, inputs: Any) -> None:
-    """Resolve each input descriptor → a DuckDB view backed by iceberg_scan.
+def _register_views(conn: Any, inp: Any, source_expr: str) -> None:
+    """Bind an input ref to ``source_expr`` under both 2-part and 3-part names.
 
-    SQL references inputs by `"<layer>"."<name>"`; the engine maps that logical
-    name to the table's current metadata location via the input's own catalog.
+    SQL references inputs by `"<layer>"."<name>"` (runner logical refs) or by
+    `"<ns>"."<layer>"."<name>"` (ratq full refs); we register both so either binds.
+    The :memory: catalog mirrors how the query service registers its own views.
     """
+    layer = _quote_identifier(layer_name(inp.ref.layer))
+    name = _quote_identifier(inp.ref.name)
+    conn.execute(f"CREATE SCHEMA IF NOT EXISTS {layer}")
+    conn.execute(f"CREATE OR REPLACE VIEW {layer}.{name} AS {source_expr}")
+    if inp.ref.namespace:
+        nsq = _quote_identifier(inp.ref.namespace)
+        conn.execute(f"ATTACH IF NOT EXISTS ':memory:' AS {nsq}")
+        conn.execute(f"CREATE SCHEMA IF NOT EXISTS {nsq}.{layer}")
+        conn.execute(f"CREATE OR REPLACE VIEW {nsq}.{layer}.{name} AS {source_expr}")
+
+
+def _register_iceberg_input(conn: Any, inp: Any) -> None:
+    """Register one iceberg input as a view over iceberg_scan(its current metadata.json)."""
+    s3 = s3_config_from_storage(inp.storage)
+    nessie = nessie_config_from_catalog(inp.catalog)
+    branch = inp.catalog.branch or "main"
+    _configure_s3(conn, s3)
+    catalog = get_catalog(s3, nessie, branch)
+    table = catalog.load_table(table_identifier(inp))
+    scan = f"SELECT * FROM iceberg_scan('{_escape_sql_string(table.metadata_location)}')"
+    _register_views(conn, inp, scan)
+
+
+def _register_ducklake_input(conn: Any, inp: Any, attached: set[str]) -> None:
+    """Register one ducklake input as a view over the attached lake's table."""
+    if inp.catalog.uri not in attached:
+        ducklake.attach_lake(conn, inp.catalog, inp.storage, use=False)
+        attached.add(inp.catalog.uri)
+    layer = _quote_identifier(layer_name(inp.ref.layer))
+    name = _quote_identifier(inp.ref.name)
+    _register_views(conn, inp, f"SELECT * FROM lake.{layer}.{name}")
+
+
+def _register_inputs(conn: Any, inputs: Any) -> None:
+    """Resolve each input descriptor → a DuckDB view, dispatching on its format.
+
+    The engine reads each input natively (iceberg via iceberg_scan, ducklake via
+    the attached lake), so a single query can span formats as long as one engine
+    serves them.
+    """
+    attached_lakes: set[str] = set()
     for inp in inputs:
-        s3 = s3_config_from_storage(inp.storage)
-        nessie = nessie_config_from_catalog(inp.catalog)
-        branch = inp.catalog.branch or "main"
-        _configure_s3(conn, s3)
-        catalog = get_catalog(s3, nessie, branch)
-        table = catalog.load_table(table_identifier(inp))
-        metadata = table.metadata_location
-        layer = _quote_identifier(layer_name(inp.ref.layer))
-        name = _quote_identifier(inp.ref.name)
-        scan = f"SELECT * FROM iceberg_scan('{_escape_sql_string(metadata)}')"
-        # Logical 2-part ref ("layer"."name") — what the runner compiles to.
-        conn.execute(f"CREATE SCHEMA IF NOT EXISTS {layer}")
-        conn.execute(f"CREATE OR REPLACE VIEW {layer}.{name} AS {scan}")
-        # Also expose the namespace-qualified 3-part ref ("ns"."layer"."name")
-        # so consumers that address tables fully (e.g. ratq's SELECT … FROM
-        # default.bronze.orders) bind too. The :memory: catalog mirrors how the
-        # query service registers its own views.
-        if inp.ref.namespace:
-            nsq = _quote_identifier(inp.ref.namespace)
-            conn.execute(f"ATTACH IF NOT EXISTS ':memory:' AS {nsq}")
-            conn.execute(f"CREATE SCHEMA IF NOT EXISTS {nsq}.{layer}")
-            conn.execute(f"CREATE OR REPLACE VIEW {nsq}.{layer}.{name} AS {scan}")
+        fmt = inp.format or "iceberg"
+        if fmt == "iceberg":
+            _register_iceberg_input(conn, inp)
+        elif fmt == "ducklake":
+            _register_ducklake_input(conn, inp, attached_lakes)
+        else:
+            raise RuntimeError(f"engine has no input adapter for format {fmt!r}")
 
 
 def _engine_for_inputs(inputs: Any) -> DuckDBEngine:
