@@ -11,6 +11,7 @@ import logging
 from typing import Any
 
 import grpc
+import pyarrow as pa
 from engine.v1 import (  # type: ignore[import-untyped]
     engine_pb2,
     engine_pb2_grpc,
@@ -48,6 +49,15 @@ class EngineClient:
         if result.error:
             raise RuntimeError(f"engine Execute failed: {result.error}")
         return result
+
+    def query(self, request: Any) -> pa.Table:
+        """Run a read-only Query; reassemble the streamed Arrow IPC into one table."""
+        table: pa.Table | None = None
+        for response in self._stub.Query(request):
+            if response.arrow_ipc:
+                with pa.ipc.open_stream(pa.BufferReader(response.arrow_ipc)) as reader:
+                    table = reader.read_all()
+        return table if table is not None else pa.table({})
 
     def close(self) -> None:
         self._channel.close()

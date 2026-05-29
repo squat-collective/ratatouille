@@ -137,6 +137,9 @@ class _PipelineContext:
     # Engine mode: catalog/v1 client — branch lifecycle + GetTable descriptor
     # vending. None in the legacy local path (gated until #10).
     catalog_client: CatalogClient | None = None
+    # Engine mode: the vended StorageDescriptor (set in _phase_engine_execute,
+    # reused by phase-4 quality which assembles its own input descriptors).
+    storage_descriptor: Any = None
 
 
 def _archive_landing_zones(
@@ -556,18 +559,84 @@ def _write_full_refresh_fallback(ctx: _PipelineContext, strategy: MergeStrategy)
 # ── Phase 4: Quality tests ───────────────────────────────────────────
 
 
+def _local_quality_runner(ctx: _PipelineContext, timeout_seconds: int) -> Any:
+    """Quality runner for the local path: compile (iceberg_scan refs) + local DuckDB."""
+
+    def run_test(raw: str) -> tuple[str, Any]:
+        assert ctx.engine is not None
+        compiled = compile_sql(
+            raw,
+            ctx.run.namespace,
+            ctx.run.layer,
+            ctx.run.pipeline_name,
+            ctx.s3_config,
+            ctx.nessie_config,
+        )
+        return compiled, lambda: ctx.engine.query_arrow(compiled, timeout_seconds=timeout_seconds)
+
+    return run_test
+
+
+def _engine_quality_runner(ctx: _PipelineContext, client: EngineClient) -> Any:
+    """Quality runner for engine mode: logical-ref SQL + engine.Query on the run branch.
+
+    The test's ref()s resolve against the run branch (which holds the freshly written
+    output on top of main), so input descriptors are assembled at ctx.branch_name.
+    """
+    ns, layer, name = ctx.run.namespace, ctx.run.layer, ctx.run.pipeline_name
+
+    def run_test(raw: str) -> tuple[str, Any]:
+        compiled = compile_sql(
+            raw, ns, layer, name, ctx.s3_config, ctx.nessie_config, logical_refs=True
+        )
+        inputs = []
+        for dep in extract_dependencies(raw):
+            d_ns, d_layer, d_name = _parse_ref(dep, ns)
+            inputs.append(
+                _assemble_table_descriptor(
+                    ctx.catalog_client,
+                    ctx.storage_descriptor,
+                    d_ns,
+                    layer_enum(d_layer),
+                    d_name,
+                    ctx.branch_name,
+                )
+            )
+        request = engine_pb2.QueryRequest(language="sql", source=compiled, inputs=inputs, limit=0)
+        return compiled, lambda: client.query(request)
+
+    return run_test
+
+
 def _phase4_quality_tests(ctx: _PipelineContext) -> list[QualityTestResult]:
-    """Run quality tests against the result data and return results."""
+    """Run quality tests against the freshly written table; return results.
+
+    Engine mode runs them via engine.Query; the local path uses the embedded DuckDB.
+    """
     _check_cancelled(ctx.run)
-    assert ctx.engine is not None
-    quality_results = run_quality_tests(
-        ctx.run,
-        ctx.engine,
-        ctx.s3_config,
-        ctx.nessie_config,
-        ctx.log,
-        published_versions=ctx.published_versions or None,
-    )
+    if _engine_mode():
+        assert ctx.data_plane is not None
+        client = EngineClient(ctx.data_plane.engine_addr)
+        try:
+            quality_results = run_quality_tests(
+                ctx.run,
+                _engine_quality_runner(ctx, client),
+                ctx.s3_config,
+                ctx.log,
+                published_versions=ctx.published_versions or None,
+            )
+        finally:
+            client.close()
+    else:
+        assert ctx.engine is not None
+        timeout = DuckDBConfig.from_env().quality_test_timeout_seconds
+        quality_results = run_quality_tests(
+            ctx.run,
+            _local_quality_runner(ctx, timeout),
+            ctx.s3_config,
+            ctx.log,
+            published_versions=ctx.published_versions or None,
+        )
     ctx.run.quality_results = quality_results
     return quality_results
 
@@ -878,23 +947,20 @@ def _phase_engine_execute(ctx: _PipelineContext) -> None:
     ctx.table_name = f"{ns}.{layer}.{name}"
     ctx.location = f"s3://{ctx.s3_config.bucket}/{ns}/{layer}/{name}/"
 
-    # Phase 4 (quality) still runs locally for now and needs a DuckDB engine to read
-    # the freshly written branch table. TODO(#10): route quality via engine.Query and
-    # drop the runner's embedded DuckDB entirely.
-    if ctx.engine is None:
-        ctx.engine = DuckDBEngine(ctx.s3_config)
-
     plane = ctx.data_plane if ctx.data_plane is not None else _resolve_data_plane(ctx)
     ctx.log.info(
         f"Engine mode: data_plane '{plane.name}' engine={plane.engine_addr} format={plane.format}"
     )
 
     # Vend the StorageDescriptor from the storage/v1 service (it owns the S3 creds).
+    # Stash it so phase-4 quality can assemble its own input descriptors without
+    # a second vend.
     storage_client = StorageClient(plane.storage_addr)
     try:
         storage_descriptor = storage_client.vend_descriptor(location=ctx.s3_config.bucket)
     finally:
         storage_client.close()
+    ctx.storage_descriptor = storage_descriptor
 
     if ctx.pipeline_type == "sql":
         language = "sql"

@@ -39,11 +39,23 @@ def _make_run(**kwargs) -> RunState:
 
 def _make_engine(quality_test_timeout_seconds: int = 60) -> MagicMock:
     engine = MagicMock()
-    # quality.py reads engine._duckdb_config.quality_test_timeout_seconds
-    # to compute the per-test deadline — populate a realistic config so the
-    # watchdog wiring receives the value we expect under test.
+    # Some tests still read engine._duckdb_config for legacy assertions.
     engine._duckdb_config = DuckDBConfig(quality_test_timeout_seconds=quality_test_timeout_seconds)
     return engine
+
+
+def _rt_from(engine: MagicMock, compiled: str = "SELECT * FROM iceberg_scan('s3://t/meta.json')"):
+    """Adapt an engine mock to the run_test(raw) -> (compiled_sql, result) callable.
+
+    Preserves each test's engine.query_arrow return_value/side_effect; quality.py no
+    longer compiles (the executor's per-mode closure does), so the compiled SQL is a
+    fixed stand-in here.
+    """
+
+    def _fn(raw: str) -> tuple[str, object]:
+        return compiled, lambda: engine.query_arrow(raw)
+
+    return _fn
 
 
 class TestParseSeverity:
@@ -106,12 +118,7 @@ class TestRunQualityTest:
         result = run_quality_test(
             "SELECT 1 WHERE false",
             "myns/pipelines/silver/orders/tests/quality/not_null.sql",
-            engine,
-            "myns",
-            "silver",
-            "orders",
-            s3_config,
-            nessie_config,
+            _rt_from(engine),
             log,
         )
 
@@ -128,12 +135,7 @@ class TestRunQualityTest:
         result = run_quality_test(
             "SELECT id FROM orders WHERE id IS NULL",
             "myns/pipelines/silver/orders/tests/quality/not_null.sql",
-            engine,
-            "myns",
-            "silver",
-            "orders",
-            s3_config,
-            nessie_config,
+            _rt_from(engine),
             log,
         )
 
@@ -150,12 +152,7 @@ class TestRunQualityTest:
         result = run_quality_test(
             "INVALID SQL",
             "myns/pipelines/silver/orders/tests/quality/bad.sql",
-            engine,
-            "myns",
-            "silver",
-            "orders",
-            s3_config,
-            nessie_config,
+            _rt_from(engine),
             log,
         )
 
@@ -173,19 +170,15 @@ class TestRunQualityTest:
         result = run_quality_test(
             sql,
             "myns/pipelines/silver/orders/tests/quality/ref_test.sql",
-            engine,
-            "myns",
-            "silver",
-            "orders",
-            s3_config,
-            nessie_config,
+            _rt_from(engine),
             log,
         )
 
         assert result.status == "pass"
-        # Verify ref() was resolved in the compiled SQL
-        compiled_sql = engine.query_arrow.call_args[0][0]
-        assert "iceberg_scan" in compiled_sql
+        # quality.py delegates compile+execute to the injected run_test; here we
+        # just confirm the raw SQL flows through to it. (ref()->iceberg_scan
+        # compilation is the executor closure's job now, covered by templating tests.)
+        assert engine.query_arrow.call_args[0][0] == sql
 
 
 class TestDiscoverQualityTestsVersioned:
@@ -253,9 +246,8 @@ class TestRunQualityTests:
 
         results = run_quality_tests(
             run,
-            engine,
+            _rt_from(engine),
             s3_config,
-            nessie_config,
             log,
             published_versions=published_versions,
         )
@@ -274,9 +266,8 @@ class TestRunQualityTests:
 
         results = run_quality_tests(
             run,
-            engine,
+            _rt_from(engine),
             s3_config,
-            nessie_config,
             log,
             published_versions=None,
         )
@@ -305,9 +296,8 @@ class TestRunQualityTestsVersioned:
 
         results = run_quality_tests(
             run,
-            engine,
+            _rt_from(engine),
             s3_config,
-            nessie_config,
             log,
             published_versions=published_versions,
         )
@@ -330,9 +320,8 @@ class TestRunQualityTestsVersioned:
 
         results = run_quality_tests(
             run,
-            engine,
+            _rt_from(engine),
             s3_config,
-            nessie_config,
             log,
             published_versions=None,
         )
@@ -350,9 +339,8 @@ class TestRunQualityTestsVersioned:
 
         results = run_quality_tests(
             run,
-            engine,
+            _rt_from(engine),
             s3_config,
-            nessie_config,
             log,
             published_versions={},
         )
@@ -540,12 +528,7 @@ class TestRunQualityTestEnhanced:
         result = run_quality_test(
             "SELECT id, reason FROM {{ this }} WHERE id IS NULL",
             "myns/pipelines/silver/orders/tests/quality/not_null.sql",
-            engine,
-            "myns",
-            "silver",
-            "orders",
-            s3_config,
-            nessie_config,
+            _rt_from(engine),
             log,
         )
 
@@ -563,12 +546,7 @@ class TestRunQualityTestEnhanced:
         result = run_quality_test(
             "SELECT 1 WHERE false",
             "myns/pipelines/silver/orders/tests/quality/ok.sql",
-            engine,
-            "myns",
-            "silver",
-            "orders",
-            s3_config,
-            nessie_config,
+            _rt_from(engine),
             log,
         )
 
@@ -584,12 +562,7 @@ class TestRunQualityTestEnhanced:
         result = run_quality_test(
             "SELECT * FROM {{ this }} WHERE id IS NULL",
             "myns/pipelines/silver/orders/tests/quality/not_null.sql",
-            engine,
-            "myns",
-            "silver",
-            "orders",
-            s3_config,
-            nessie_config,
+            _rt_from(engine),
             log,
         )
 
@@ -606,12 +579,7 @@ class TestRunQualityTestEnhanced:
         result = run_quality_test(
             sql,
             "myns/pipelines/silver/orders/tests/quality/not_null.sql",
-            engine,
-            "myns",
-            "silver",
-            "orders",
-            s3_config,
-            nessie_config,
+            _rt_from(engine),
             log,
         )
 
@@ -626,12 +594,7 @@ class TestRunQualityTestEnhanced:
         result = run_quality_test(
             "SELECT 1",
             "myns/pipelines/silver/orders/tests/quality/bad.sql",
-            engine,
-            "myns",
-            "silver",
-            "orders",
-            s3_config,
-            nessie_config,
+            _rt_from(engine),
             log,
         )
 
@@ -652,9 +615,11 @@ class TestQualityTestTimeout:
     def test_normal_test_passes_and_passes_timeout_through(
         self, s3_config: S3Config, nessie_config: NessieConfig
     ):
-        """A quality test that completes inside its deadline should pass
-        AND the engine must have received the configured timeout — proving
-        the watchdog is wired (not silently bypassed)."""
+        """A quality test that completes inside its deadline passes.
+
+        (Forwarding the per-test timeout to the executor's local DuckDB closure is
+        now an executor concern, exercised in test_executor, not here.)
+        """
         engine = _make_engine(quality_test_timeout_seconds=45)
         engine.query_arrow.return_value = pa.table({"x": pa.array([], type=pa.int64())})
         run = _make_run()
@@ -663,21 +628,12 @@ class TestQualityTestTimeout:
         result = run_quality_test(
             "SELECT 1 WHERE false",
             "myns/pipelines/silver/orders/tests/quality/not_null.sql",
-            engine,
-            "myns",
-            "silver",
-            "orders",
-            s3_config,
-            nessie_config,
+            _rt_from(engine),
             log,
         )
 
         assert result.status == "pass"
         assert result.row_count == 0
-        # The engine must have been called with the configured timeout —
-        # otherwise the watchdog would never fire on a runaway test.
-        _, kwargs = engine.query_arrow.call_args
-        assert kwargs.get("timeout_seconds") == 45
 
     @patch("rat_runner.quality.read_s3_text_version")
     def test_timeout_records_failure_and_suite_continues(
@@ -711,9 +667,8 @@ class TestQualityTestTimeout:
 
         results = run_quality_tests(
             run,
-            engine,
+            _rt_from(engine),
             s3_config,
-            nessie_config,
             log,
             published_versions=published_versions,
         )

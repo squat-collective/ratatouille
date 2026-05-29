@@ -8,7 +8,6 @@ from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 from rat_runner.config import (
-    NessieConfig,
     S3Config,
     list_s3_keys,
     read_s3_text,
@@ -16,13 +15,19 @@ from rat_runner.config import (
 )
 from rat_runner.engine import QueryTimeoutError
 from rat_runner.models import QualityTestResult, RunState
-from rat_runner.templating import compile_sql
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import pyarrow as pa
 
-    from rat_runner.engine import DuckDBEngine
     from rat_runner.log import RunLogger
+
+    # Compiles one raw quality-test SQL, returning (compiled_sql, run) where run()
+    # executes it (local DuckDB or engine.Query) and returns the violation rows.
+    # Two-step so the compiled SQL is captured for the result even if execution
+    # raises. The executor supplies the right impl per mode.
+    RunTest = Callable[[str], tuple[str, Callable[[], pa.Table]]]
 
 
 def discover_quality_tests(
@@ -107,20 +112,15 @@ def _format_sample_rows(
 def run_quality_test(
     sql: str,
     key: str,
-    engine: DuckDBEngine,
-    namespace: str,
-    layer: str,
-    name: str,
-    s3_config: S3Config,
-    nessie_config: NessieConfig,
+    run_test: RunTest,
     log: RunLogger,
 ) -> QualityTestResult:
     """Run a single quality test SQL.
 
-    A quality test returns violation rows. 0 rows = pass.
-    The SQL is compiled via Jinja (same as pipeline SQL).
-    Severity is parsed from `-- @severity: error|warn` header (default: error).
-    Description is parsed from `-- @description: ...` header (optional).
+    A quality test returns violation rows. 0 rows = pass. ``run_test`` compiles the
+    raw SQL and returns (compiled_sql, run); ``run()`` executes it (local DuckDB or
+    the engine service). Severity/description/tags are parsed from `-- @key: value`
+    headers (default severity: error).
     """
     test_name = PurePosixPath(key).stem
     severity = _parse_severity(sql)
@@ -128,15 +128,12 @@ def run_quality_test(
     tags = _parse_tags(sql)
     remediation = _parse_remediation(sql)
 
-    timeout_seconds = engine._duckdb_config.quality_test_timeout_seconds
-
     compiled = ""
     start = time.monotonic()
     try:
-        compiled = compile_sql(sql, namespace, layer, name, s3_config, nessie_config)
+        compiled, run = run_test(sql)
         log.debug(f"Quality test '{test_name}' SQL:\n{compiled}")
-
-        result = engine.query_arrow(compiled, timeout_seconds=timeout_seconds)
+        result = run()
         row_count = len(result)
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
@@ -168,12 +165,12 @@ def run_quality_test(
             tags=tags,
             remediation=remediation,
         )
-    except QueryTimeoutError:
-        # Watchdog fired — record a deliberate failure (NOT an error) so the
-        # rest of the quality suite keeps executing. A runaway test should be
-        # surfaced to the user, not crash the run.
+    except QueryTimeoutError as e:
+        # Watchdog fired (local DuckDB path) — record a deliberate failure (NOT an
+        # error) so the rest of the quality suite keeps executing. The exception
+        # carries the actual deadline that tripped.
         elapsed_ms = int((time.monotonic() - start) * 1000)
-        msg = f"quality test exceeded {timeout_seconds}s timeout"
+        msg = str(e) or "quality test timed out"
         log.error(f"Quality test '{test_name}': {msg}")
         return QualityTestResult(
             test_name=test_name,
@@ -208,10 +205,10 @@ def run_quality_test(
 
 def run_quality_tests(
     run: RunState,
-    engine: DuckDBEngine,
+    run_test: RunTest,
     s3_config: S3Config,
-    nessie_config: NessieConfig,
     log: RunLogger,
+    *,
     published_versions: dict[str, str] | None = None,
 ) -> list[QualityTestResult]:
     """Discover and run all quality tests for a pipeline.
@@ -245,17 +242,7 @@ def run_quality_tests(
         sql = read_s3_text_version(s3_config, key, vid) if vid else read_s3_text(s3_config, key)
         if sql is None:
             continue
-        result = run_quality_test(
-            sql,
-            key,
-            engine,
-            run.namespace,
-            run.layer,
-            run.pipeline_name,
-            s3_config,
-            nessie_config,
-            log,
-        )
+        result = run_quality_test(sql, key, run_test, log)
         results.append(result)
 
     if results:
