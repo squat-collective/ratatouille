@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from rat_engine_duckdb import strategy_matrix
-from rat_engine_duckdb.formats.iceberg import (
+from rat_format_iceberg import strategy_matrix
+from rat_format_iceberg.iceberg import (
     append_iceberg,
     delete_insert_iceberg,
     merge_iceberg,
@@ -23,7 +23,6 @@ from rat_engine_duckdb.formats.iceberg import (
 if TYPE_CHECKING:
     import duckdb
     import pyarrow as pa
-
     from rat_engine_duckdb.config import NessieConfig, PipelineConfig, S3Config
 
 
@@ -245,7 +244,7 @@ _ICEBERG_RECIPES = {
     "snapshot": SnapshotStrategy(),
 }
 
-assert set(_ICEBERG_RECIPES) == set(strategy_matrix.supported_strategies("iceberg")), (
+assert set(_ICEBERG_RECIPES) == set(strategy_matrix.supported_strategies()), (
     "iceberg recipe set drifted from strategy_matrix.FORMAT_STRATEGIES['iceberg']"
 )
 
@@ -256,5 +255,5 @@ def iceberg_recipe(name: str):  # noqa: ANN201 — returns a strategy recipe ins
     Raises ``UnknownStrategyError`` (listing the supported names) if the strategy
     isn't implemented for iceberg.
     """
-    strategy_matrix.require_supported("iceberg", name)
+    strategy_matrix.require_supported(name)
     return _ICEBERG_RECIPES[name]

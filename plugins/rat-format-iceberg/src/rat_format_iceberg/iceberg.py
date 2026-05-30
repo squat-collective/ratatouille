@@ -65,12 +65,10 @@ from pyiceberg.transforms import (
     MonthTransform,
     YearTransform,
 )
-
 from rat_engine_duckdb.duckdb_engine import _to_arrow_table
 
 if TYPE_CHECKING:
     from pyiceberg.table import Table as IcebergTable
-
     from rat_engine_duckdb.config import NessieConfig, PartitionByEntry, S3Config
 
 logger = logging.getLogger(__name__)

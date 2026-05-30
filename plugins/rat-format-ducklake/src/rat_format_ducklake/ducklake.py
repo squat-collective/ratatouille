@@ -16,8 +16,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from rat_engine_duckdb import strategy_matrix
-from rat_engine_duckdb.formats.iceberg import _escape_sql_string, _quote_identifier
+from rat_engine_duckdb.sql_utils import _escape_sql_string, _quote_identifier
+
+from rat_format_ducklake import strategy_matrix
 
 if TYPE_CHECKING:
     import pyarrow as pa
@@ -52,7 +53,7 @@ def execute_ducklake(conn: Any, request: Any) -> tuple[int, pa.Schema]:
         raise RuntimeError(f"ducklake adapter supports 'sql' only; got {request.language!r}")
     # Validate against the shared (engine, format) matrix; raises UnknownStrategyError
     # (with the supported list) for a strategy ducklake doesn't implement yet.
-    strategy_matrix.require_supported("ducklake", request.strategy or "full_refresh")
+    strategy_matrix.require_supported(request.strategy or "full_refresh")
 
     attach_lake(conn, out.catalog, out.storage)
     layer = _quote_identifier(_LAYER_NAMES.get(out.ref.layer, "main"))

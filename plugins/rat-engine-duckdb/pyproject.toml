@@ -6,11 +6,10 @@ requires-python = ">=3.12"
 dependencies = [
     "duckdb>=1.1",
     "pyarrow>=17.0",
-    "pyiceberg>=0.7",
-    "s3fs>=2024.1",
     "grpcio>=1.65",
     "protobuf>=5.27",
-    "boto3>=1.35",
+    # Format-specific heavy deps (pyiceberg, s3fs, etc.) live in the format
+    # plugins (rat-format-iceberg, rat-format-ducklake) discovered at startup.
 ]
 
 [project.optional-dependencies]

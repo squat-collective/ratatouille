@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from rat_engine_duckdb.formats.iceberg import _escape_sql_string, get_catalog
+from rat_engine_duckdb.sql_utils import _escape_sql_string
 
 if TYPE_CHECKING:
     from rat_engine_duckdb.config import NessieConfig, S3Config
@@ -41,6 +41,10 @@ def _resolve_ref(
         raise ValueError(f"Invalid ref: '{table_ref}'. Expected 'layer.name' or 'ns.layer.name'.")
 
     try:
+        # Lazy import: this engine helper resolves iceberg refs only — the format
+        # plugin (rat-format-iceberg) is required at call time, not at engine import.
+        from rat_format_iceberg.iceberg import get_catalog  # noqa: PLC0415
+
         catalog = get_catalog(s3_config, nessie_config)
         table = catalog.load_table(f"{ref_ns}.{ref_layer}.{ref_name}")
         return f"iceberg_scan('{_escape_sql_string(table.metadata_location)}')"
