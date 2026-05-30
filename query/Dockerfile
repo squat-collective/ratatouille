@@ -6,6 +6,10 @@ RUN pip install --no-cache-dir uv
 # BEFORE we copy the source — keeps the dep layer cacheable across source changes.
 COPY pyproject.toml uv.lock ./
 COPY src/ ./src/
+# Shared rat-protos package (ADR-024 cleanup C) — supplied via `--build-context
+# protos=proto/sdk-python` in the Makefile. Installed into the uv-managed venv
+# AFTER uv sync (pure proto-stubs library, no version drift risk).
+COPY --from=protos . /tmp/rat-protos
 # `uv sync --locked` asserts that uv.lock is in sync with pyproject.toml and
 # fails the build if the lockfile is stale (drift between the two files).
 # Note: `--frozen` would SILENTLY skip lock resolution; `--locked` is the
@@ -15,7 +19,8 @@ COPY src/ ./src/
 # site-packages — without this, an editable install leaves a .pth file
 # pointing at /build/src/rat_query which no longer exists in the runtime
 # stage (we don't COPY the source into /app anymore).
-RUN uv sync --locked --no-dev --no-editable
+RUN uv sync --locked --no-dev --no-editable \
+  && uv pip install --no-cache-dir --python /build/.venv/bin/python /tmp/rat-protos
 
 # Runtime stage
 FROM python:3.14-slim@sha256:c845af9399020c7e562969a13689e929074a10fd057acd1b1fad06a2fb068e97

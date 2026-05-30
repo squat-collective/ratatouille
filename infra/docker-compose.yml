@@ -90,6 +90,12 @@ services:
     build:
       context: ../query
       dockerfile: Dockerfile
+      # Shared rat-protos package (ADR-024 cleanup C) — supplied as a build
+      # context so the Dockerfile can `COPY --from=protos . /tmp/rat-protos`
+      # and pip-install it into the venv without leaking the proto/ tree
+      # into the query image's primary build context.
+      additional_contexts:
+        protos: ../proto/sdk-python
     init: true
     # gRPC port 50051 is internal-only (container network)
     environment:
@@ -141,6 +147,9 @@ services:
     build:
       context: ../runner
       dockerfile: Dockerfile
+      # Shared rat-protos package (ADR-024 cleanup C) — see ratq's note.
+      additional_contexts:
+        protos: ../proto/sdk-python
     init: true
     # gRPC port 50052 is internal-only (container network)
     environment:

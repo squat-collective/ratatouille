@@ -6,9 +6,14 @@ WORKDIR /app
 RUN pip install --no-cache-dir uv
 COPY pyproject.toml uv.lock ./
 COPY src/ ./src/
+# Shared rat-protos package (ADR-024 cleanup C) — supplied via `--build-context
+# protos=proto/sdk-python` in the Makefile. The test image bakes it in so the
+# `make test-py` mount-based workflow only needs to mount src/ and tests/.
+COPY --from=protos . /tmp/rat-protos
 # `uv sync --locked` asserts that uv.lock is in sync with pyproject.toml and
 # fails the build if the lockfile is stale. (--frozen would silently skip
 # resolution; --locked is the correct strict-mode flag.)
-RUN uv sync --locked --extra dev
+RUN uv sync --locked --extra dev \
+  && uv pip install --no-cache-dir --python /app/.venv/bin/python /tmp/rat-protos
 ENV PATH="/app/.venv/bin:$PATH"
 CMD ["pytest", "-v"]

@@ -164,9 +164,13 @@ test-py: ## Run all Python tests (runner + query — uses pre-built images if av
 
 test-images: ## Build pre-built Python test images (speeds up test-py)
 	@echo "🏗️  Building runner test image..."
-	@docker build -f runner/Dockerfile.test -t $(PY_TEST_RUNNER_IMAGE) runner/
+	@docker build -f runner/Dockerfile.test \
+		--build-context protos=proto/sdk-python \
+		-t $(PY_TEST_RUNNER_IMAGE) runner/
 	@echo "🏗️  Building query test image..."
-	@docker build -f query/Dockerfile.test -t $(PY_TEST_QUERY_IMAGE) query/
+	@docker build -f query/Dockerfile.test \
+		--build-context protos=proto/sdk-python \
+		-t $(PY_TEST_QUERY_IMAGE) query/
 	@echo "✅ Test images built — run 'make test-py' to use them"
 
 test-ts: sdk-test ## Run all TypeScript tests (SDK + portal)
