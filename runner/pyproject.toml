@@ -23,14 +23,6 @@ dev = [
     "grpcio-tools>=1.65",
 ]
 
-[project.entry-points."rat.strategies"]
-full_refresh = "rat_runner.strategies:FullRefreshStrategy"
-incremental = "rat_runner.strategies:IncrementalStrategy"
-append_only = "rat_runner.strategies:AppendOnlyStrategy"
-delete_insert = "rat_runner.strategies:DeleteInsertStrategy"
-scd2 = "rat_runner.strategies:SCD2Strategy"
-snapshot = "rat_runner.strategies:SnapshotStrategy"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -41,11 +33,6 @@ packages = ["src/rat_runner"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-# extend-exclude (not exclude) so ruff's built-in excludes (.venv, .git,
-# __pycache__, .ruff_cache, …) still apply on top of ours. Plain `exclude`
-# REPLACES the defaults, which made `ruff check .` scan a local .venv and
-# report thousands of phantom errors that never exist in CI.
-extend-exclude = ["src/rat_runner/gen"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]

@@ -31,7 +31,6 @@ packages = ["src/rat_engine_duckdb"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["src/rat_engine_duckdb/gen"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]
