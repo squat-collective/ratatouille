@@ -2,11 +2,26 @@
 
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from rat_runner.config import NessieConfig, S3Config, read_s3_text
+from common.v1 import data_plane_pb2  # type: ignore[import-untyped]
+from engine.v1 import engine_pb2  # type: ignore[import-untyped]
+
+from rat_runner.bindings import BindingConfig
+from rat_runner.catalog_client import CatalogClient
+from rat_runner.config import (
+    CatalogConfig,
+    EngineConfig,
+    NessieConfig,
+    S3Config,
+    StorageConfig,
+    read_s3_text,
+)
+from rat_runner.engine_client import EngineClient
+from rat_runner.storage_client import StorageClient
 
 if TYPE_CHECKING:
     import pyarrow as pa
@@ -18,9 +33,29 @@ from rat_runner.python_exec import execute_python_pipeline
 from rat_runner.templating import (
     _resolve_landing_zone_preview,
     compile_sql,
+    extract_dependencies,
     extract_metadata,
     metadata_to_config,
 )
+
+# 2-part/3-part medallion refs (default ns when 2-part). Mirrors executor._parse_ref.
+_LAYER_ENUMS = {"bronze": 1, "silver": 2, "gold": 3}
+
+
+def _engine_mode() -> bool:
+    """Same transitional gate as executor — route reads through engine/v1 when set."""
+    return os.environ.get("RAT_ENGINE_MODE", "").lower() in ("1", "true", "yes")
+
+
+def _split_ref(ref: str, default_ns: str) -> tuple[str, str, str]:
+    """`ns.layer.name` or `layer.name` → (namespace, layer, name)."""
+    parts = ref.split(".", 2)
+    if len(parts) == 2:
+        return default_ns, parts[0], parts[1]
+    if len(parts) == 3:
+        return parts[0], parts[1], parts[2]
+    raise ValueError(f"Invalid ref {ref!r}: expected 'layer.name' or 'ns.layer.name'")
+
 
 PREVIEW_TIMEOUT_SECONDS = 30
 DEFAULT_PREVIEW_LIMIT = 100
@@ -60,6 +95,100 @@ class PreviewResult:
 
 def _time_ms(start: float) -> int:
     return int((time.monotonic() - start) * 1000)
+
+
+def _preview_sql_via_engine(
+    source: str,
+    namespace: str,
+    layer: str,
+    pipeline_name: str,
+    s3_config: S3Config,
+    nessie_config: NessieConfig,
+    config: PipelineConfig | None,
+    log: RunLogger,
+    result: PreviewResult,
+    preview_limit: int,
+) -> None:
+    """SQL preview through engine.Preview (ADR-024 #10 stage 2).
+
+    Runner does no local I/O: compiles logical-ref SQL, resolves each ref to a
+    TableDescriptor via catalog/v1+storage/v1, and asks the engine to run a
+    LIMIT-bounded preview. EXPLAIN ANALYZE is not part of the Preview contract
+    (skipped with a warning); the exact total row count is only known when the
+    sample didn't fill the limit.
+    """
+    binding = BindingConfig.load(
+        os.environ.get("RAT_BINDINGS"),
+        engine_addr=EngineConfig.from_env().addr,
+        catalog_addr=CatalogConfig.from_env().addr,
+        storage_addr=StorageConfig.from_env().addr,
+    )
+    plane = binding.resolve(namespace, layer, pipeline_name)
+
+    t0 = time.monotonic()
+    compiled = compile_sql(
+        raw_sql=source,
+        namespace=namespace,
+        layer=layer,
+        pipeline_name=pipeline_name,
+        s3_config=s3_config,
+        nessie_config=nessie_config,
+        config=config,
+        logical_refs=True,
+    )
+    result.phases.append(PhaseProfile(name="compile", duration_ms=_time_ms(t0)))
+    log.info("SQL compiled (logical refs)")
+
+    catalog_client = CatalogClient(plane.catalog_addr)
+    storage_client = StorageClient(plane.storage_addr)
+    try:
+        storage = storage_client.vend_descriptor(location=s3_config.bucket)
+        inputs = []
+        for dep in extract_dependencies(source):
+            d_ns, d_layer, d_name = _split_ref(dep, namespace)
+            ref = data_plane_pb2.TableRef(namespace=d_ns, layer=_LAYER_ENUMS[d_layer], name=d_name)
+            info = catalog_client.get_table(ref, "main")
+            inputs.append(
+                data_plane_pb2.TableDescriptor(
+                    ref=ref,
+                    format=info.format,
+                    identifier=info.identifier,
+                    catalog=info.catalog,
+                    storage=storage,
+                )
+            )
+    finally:
+        catalog_client.close()
+        storage_client.close()
+
+    t0 = time.monotonic()
+    client = EngineClient(plane.engine_addr)
+    try:
+        ok, table, err = client.preview(
+            engine_pb2.PreviewRequest(
+                language="sql", source=compiled, inputs=inputs, limit=preview_limit
+            )
+        )
+    finally:
+        client.close()
+    if not ok:
+        raise RuntimeError(f"engine.Preview failed: {err}")
+    assert table is not None
+    result.phases.append(
+        PhaseProfile(
+            name="execute", duration_ms=_time_ms(t0), metadata={"limit": str(preview_limit)}
+        )
+    )
+    result.arrow_table = table
+    result.columns = _extract_columns(table)
+    log.info(f"Executed via engine.Preview: {table.num_rows} rows")
+
+    result.warnings.append("EXPLAIN ANALYZE skipped: not supported by engine.Preview")
+    if table.num_rows < preview_limit:
+        result.total_row_count = table.num_rows
+    else:
+        result.total_row_count = -1
+        result.warnings.append("Total row count unknown (preview returned full limit)")
 
 
 def preview_pipeline(
@@ -118,7 +247,21 @@ def preview_pipeline(
             )
         )
 
-        if pipeline_type == "sql":
+        if pipeline_type == "sql" and _engine_mode():
+            # Engine mode: skip local DuckDB entirely; rows come from engine.Preview.
+            _preview_sql_via_engine(
+                source=source,
+                namespace=namespace,
+                layer=layer_str,
+                pipeline_name=pipeline_name,
+                s3_config=s3_config,
+                nessie_config=nessie_config,
+                config=config,
+                log=log,
+                result=result,
+                preview_limit=preview_limit,
+            )
+        elif pipeline_type == "sql":
             _preview_sql(
                 source=source,
                 namespace=namespace,

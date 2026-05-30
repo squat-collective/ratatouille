@@ -59,5 +59,15 @@ class EngineClient:
                     table = reader.read_all()
         return table if table is not None else pa.table({})
 
+    def preview(self, request: Any) -> tuple[bool, pa.Table | None, str]:
+        """Run a Preview (unary); return (success, sample_table, error_message)."""
+        response = self._stub.Preview(request)
+        if not response.success:
+            return False, None, response.error
+        if not response.arrow_ipc:
+            return True, pa.table({}), ""
+        with pa.ipc.open_stream(pa.BufferReader(response.arrow_ipc)) as reader:
+            return True, reader.read_all(), ""
+
     def close(self) -> None:
         self._channel.close()
