@@ -103,6 +103,12 @@ services:
       # S3 — same creds as ratd, for DuckDB table reads
       <<: *s3-credentials
       NESSIE_URL: http://nessie:19120/api/v1
+      # ADR-024: ratq routes reads through the engine/catalog/storage
+      # composition. Defaults match these service names; setting them
+      # explicitly makes the wiring discoverable in `docker compose config`.
+      ENGINE_ADDR: "engine:50081"
+      CATALOG_ADDR: "catalog:50082"
+      STORAGE_ADDR: "storage:50083"
       # Per-query timeout in seconds. A watchdog calls conn.interrupt()
       # once the deadline passes; callers get DEADLINE_EXCEEDED. Override
       # via QUERY_TIMEOUT_SECS in your .env (default: 60).
@@ -117,6 +123,9 @@ services:
       nessie: { condition: service_healthy }
       nessie-init: { condition: service_completed_successfully }
       postgres: { condition: service_healthy }
+      engine: { condition: service_healthy }
+      catalog: { condition: service_healthy }
+      storage: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "python", "-c", "import grpc; ch=grpc.insecure_channel('localhost:50051'); grpc.channel_ready_future(ch).result(timeout=2)"]
       interval: 10s
@@ -162,6 +171,13 @@ services:
       # S3 — same creds as ratd, for pipeline writes to Iceberg/Parquet
       <<: *s3-credentials
       NESSIE_URL: http://nessie:19120/api/v1
+      # ADR-024: runner is a pure orchestrator — every table byte goes
+      # through the engine, branches through the catalog, S3 creds through
+      # storage. Defaults match these service names; setting them
+      # explicitly makes the wiring discoverable in `docker compose config`.
+      ENGINE_ADDR: "engine:50081"
+      CATALOG_ADDR: "catalog:50082"
+      STORAGE_ADDR: "storage:50083"
       # Per-quality-test timeout. A runaway test (infinite loop, catastrophic
       # cartesian join) would otherwise hang the runner thread; the watchdog
       # calls conn.interrupt() once the deadline passes and the test is
@@ -172,6 +188,9 @@ services:
       minio: { condition: service_healthy }
       nessie: { condition: service_healthy }
       nessie-init: { condition: service_completed_successfully }
+      engine: { condition: service_healthy }
+      catalog: { condition: service_healthy }
+      storage: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "python", "-c", "import grpc; ch=grpc.insecure_channel('localhost:50052'); grpc.channel_ready_future(ch).result(timeout=2)"]
       interval: 10s
@@ -428,6 +447,129 @@ services:
           memory: 64M
           cpus: '0.25'
           pids: 50
+    logging: *default-logging
+    networks:
+      - backend
+
+  # ── Engine (Python, DuckDB) — ADR-024 compute axis ───────────
+  # Format-agnostic gRPC service (engine/v1) that does ALL table I/O. Format
+  # support is bundled at build time via two extra contexts (rat-format-
+  # iceberg + rat-format-ducklake) and discovered at runtime through the
+  # `rat_engine_duckdb.format_adapters` entry-point group — no env override.
+  engine:
+    build:
+      context: ../plugins/rat-engine-duckdb
+      dockerfile: Dockerfile
+      additional_contexts:
+        protos: ../proto/sdk-python
+        format_iceberg: ../plugins/rat-format-iceberg
+        format_ducklake: ../plugins/rat-format-ducklake
+    init: true
+    # gRPC port 50081 is internal-only (container network)
+    environment:
+      ENGINE_PORT: "50081"
+      # S3 — engine writes Iceberg/Parquet directly to MinIO
+      <<: *s3-credentials
+      DUCKDB_MEMORY_LIMIT: "${DUCKDB_MEMORY_LIMIT:-2GB}"
+      DUCKDB_THREADS: "${DUCKDB_THREADS:-4}"
+      QUERY_TIMEOUT_SECS: "${QUERY_TIMEOUT_SECS:-60}"
+      QUALITY_TEST_TIMEOUT_SECS: "${QUALITY_TEST_TIMEOUT_SECS:-60}"
+    depends_on:
+      minio: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; ch=grpc.insecure_channel('localhost:50081'); grpc.channel_ready_future(ch).result(timeout=2)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp
+      - /root/.duckdb:exec       # DuckDB extension install dir (engine runs as root)
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+          pids: 100
+    logging: *default-logging
+    networks:
+      - backend
+
+  # ── Catalog (Nessie / Iceberg REST) — ADR-024 catalog axis ────
+  # Default bundle uses rat-catalog-nessie. To swap in a different protocol
+  # plugin (rat-catalog-lakekeeper, rat-catalog-ducklake), point the build
+  # `context:` at that plugin dir and update NESSIE_URL → its env equivalent.
+  catalog:
+    build:
+      context: ../plugins/rat-catalog-nessie
+      dockerfile: Dockerfile
+      additional_contexts:
+        protos: ../proto/sdk-python
+    init: true
+    # gRPC port 50082 is internal-only (container network)
+    environment:
+      CATALOG_PORT: "50082"
+      NESSIE_URL: http://nessie:19120/api/v1
+    depends_on:
+      nessie: { condition: service_healthy }
+      nessie-init: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; ch=grpc.insecure_channel('localhost:50082'); grpc.channel_ready_future(ch).result(timeout=2)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+          pids: 100
+    logging: *default-logging
+    networks:
+      - backend
+
+  # ── Storage (S3) — ADR-024 storage axis ──────────────────────
+  # Vends short-lived S3 credentials + storage descriptors for the engine.
+  storage:
+    build:
+      context: ../plugins/rat-storage-s3
+      dockerfile: Dockerfile
+      additional_contexts:
+        protos: ../proto/sdk-python
+    init: true
+    # gRPC port 50083 is internal-only (container network)
+    environment:
+      STORAGE_PORT: "50083"
+      <<: *s3-credentials
+    depends_on:
+      minio: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; ch=grpc.insecure_channel('localhost:50083'); grpc.channel_ready_future(ch).result(timeout=2)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+          pids: 100
     logging: *default-logging
     networks:
       - backend
