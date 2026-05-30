@@ -16,7 +16,7 @@ import urllib.request
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from rat_catalog.config import NessieConfig
+    from rat_catalog_nessie.config import NessieConfig
 
 LAYERS = ("bronze", "silver", "gold")
 

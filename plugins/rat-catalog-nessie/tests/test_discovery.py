@@ -4,7 +4,7 @@ import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from rat_catalog import discovery
+from rat_catalog_nessie import discovery
 
 
 def _nessie() -> SimpleNamespace:
@@ -30,19 +30,19 @@ _ENTRIES = [
 ]
 
 
-@patch("rat_catalog.discovery.urllib.request.urlopen")
+@patch("rat_catalog_nessie.discovery.urllib.request.urlopen")
 def test_list_namespaces_top_level(mock_urlopen: MagicMock):
     mock_urlopen.return_value = _resp(_ENTRIES)
     assert discovery.list_namespaces(_nessie()) == ["default", "shop"]
 
 
-@patch("rat_catalog.discovery.urllib.request.urlopen")
+@patch("rat_catalog_nessie.discovery.urllib.request.urlopen")
 def test_list_namespaces_with_parent_returns_children(mock_urlopen: MagicMock):
     mock_urlopen.return_value = _resp(_ENTRIES)
     assert discovery.list_namespaces(_nessie(), parent="default") == ["bronze"]
 
 
-@patch("rat_catalog.discovery.urllib.request.urlopen")
+@patch("rat_catalog_nessie.discovery.urllib.request.urlopen")
 def test_list_tables_for_namespace(mock_urlopen: MagicMock):
     mock_urlopen.return_value = _resp(_ENTRIES)
     assert discovery.list_tables(_nessie(), "default") == [
@@ -51,13 +51,13 @@ def test_list_tables_for_namespace(mock_urlopen: MagicMock):
     ]
 
 
-@patch("rat_catalog.discovery.urllib.request.urlopen")
+@patch("rat_catalog_nessie.discovery.urllib.request.urlopen")
 def test_list_tables_filters_by_namespace(mock_urlopen: MagicMock):
     mock_urlopen.return_value = _resp(_ENTRIES)
     assert discovery.list_tables(_nessie(), "shop") == [("shop", "bronze", "items")]
 
 
-@patch("rat_catalog.discovery.urllib.request.urlopen")
+@patch("rat_catalog_nessie.discovery.urllib.request.urlopen")
 def test_list_tables_filters_by_layer(mock_urlopen: MagicMock):
     mock_urlopen.return_value = _resp(_ENTRIES)
     assert discovery.list_tables(_nessie(), "default", layer_filter="silver") == [

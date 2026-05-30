@@ -14,7 +14,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
-    from rat_catalog.config import NessieConfig
+    from rat_catalog_nessie.config import NessieConfig
 
 logger = logging.getLogger(__name__)
 
