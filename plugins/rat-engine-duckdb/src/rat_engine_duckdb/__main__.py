@@ -2,14 +2,9 @@
 
 import logging
 import os
-import sys
-from pathlib import Path
 
-# Add gen/ to sys.path so generated proto stubs use bare imports
-# (e.g. `from engine.v1 import engine_pb2`). Mirrors the runner's __main__.
-_gen_dir = Path(__file__).parent / "gen"
-if str(_gen_dir) not in sys.path:
-    sys.path.insert(0, str(_gen_dir))
+# Proto stubs come from the shared `rat-protos` package (ADR-024 cleanup C):
+# `from engine.v1 import engine_pb2` is satisfied without a per-plugin gen/ copy.
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 

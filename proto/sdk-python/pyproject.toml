@@ -1,0 +1,33 @@
+[project]
+name = "rat-protos"
+version = "0.2.0b1"
+description = "Generated gRPC + protobuf stubs for the RAT data platform (shared by runner, query, plugins)"
+requires-python = ">=3.12"
+dependencies = [
+    "protobuf>=5.27,<7",
+    "grpcio>=1.65",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Each top-level dir under src/ is a proto-package (e.g. catalog/v1, common/v1).
+# We ship them as namespace packages (PEP 420) — no __init__.py needed — so
+# consumers can `from catalog.v1 import catalog_pb2` once `pip install rat-protos`.
+[tool.hatch.build.targets.wheel]
+sources = ["src"]
+include = [
+    "src/catalog/**",
+    "src/cloud/**",
+    "src/common/**",
+    "src/engine/**",
+    "src/executor/**",
+    "src/identity/**",
+    "src/permission/**",
+    "src/plugin/**",
+    "src/query/**",
+    "src/runner/**",
+    "src/sharing/**",
+    "src/storage/**",
+]

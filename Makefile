@@ -140,22 +140,26 @@ test-py: ## Run all Python tests (runner + query — uses pre-built images if av
 		docker run --rm \
 			-v $$(pwd)/runner/src:/app/src \
 			-v $$(pwd)/runner/tests:/app/tests \
+			-v $$(pwd)/proto/sdk-python/src:/app/protos \
+			-e PYTHONPATH=/app/protos:/app/src \
 			$(PY_TEST_RUNNER_IMAGE); \
 	else \
 		echo "⚠️  Pre-built runner test image not found, installing deps from scratch (run 'make test-images' to speed this up)..."; \
-		docker run --rm -v $$(pwd)/runner:/app -w /app $(PY_IMAGE) \
-			sh -c "pip install -q uv 2>/dev/null && uv sync --locked --extra dev -q && .venv/bin/pytest -v"; \
+		docker run --rm -v $$(pwd)/runner:/app -v $$(pwd)/proto/sdk-python/src:/protos -w /app $(PY_IMAGE) \
+			sh -c "pip install -q uv 2>/dev/null && uv sync --locked --extra dev -q && PYTHONPATH=/protos .venv/bin/pytest -v"; \
 	fi
 	@if docker image inspect $(PY_TEST_QUERY_IMAGE) >/dev/null 2>&1; then \
 		echo "🚀 Using pre-built query test image..."; \
 		docker run --rm \
 			-v $$(pwd)/query/src:/app/src \
 			-v $$(pwd)/query/tests:/app/tests \
+			-v $$(pwd)/proto/sdk-python/src:/app/protos \
+			-e PYTHONPATH=/app/protos:/app/src \
 			$(PY_TEST_QUERY_IMAGE); \
 	else \
 		echo "⚠️  Pre-built query test image not found, installing deps from scratch (run 'make test-images' to speed this up)..."; \
-		docker run --rm -v $$(pwd)/query:/app -w /app $(PY_IMAGE) \
-			sh -c "pip install -q uv 2>/dev/null && uv sync --locked --extra dev -q && .venv/bin/pytest -v"; \
+		docker run --rm -v $$(pwd)/query:/app -v $$(pwd)/proto/sdk-python/src:/protos -w /app $(PY_IMAGE) \
+			sh -c "pip install -q uv 2>/dev/null && uv sync --locked --extra dev -q && PYTHONPATH=/protos .venv/bin/pytest -v"; \
 	fi
 
 test-images: ## Build pre-built Python test images (speeds up test-py)

@@ -2,17 +2,11 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import pytest
 
 from rat_runner.config import NessieConfig, S3Config, _boto3_client_cache_clear
 
-# Add gen/ to sys.path for proto imports (same as __main__.py)
-_gen_dir = Path(__file__).parent.parent / "src" / "rat_runner" / "gen"
-if str(_gen_dir) not in sys.path:
-    sys.path.insert(0, str(_gen_dir))
+# Proto stubs come from the shared `rat-protos` package (ADR-024 cleanup C).
 
 
 @pytest.fixture(autouse=True)

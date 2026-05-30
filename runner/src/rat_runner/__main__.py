@@ -11,12 +11,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Add gen/ directory to sys.path so generated proto stubs can use bare imports
-# (e.g., `from common.v1 import common_pb2`)
-_gen_dir = Path(__file__).parent / "gen"
-if str(_gen_dir) not in sys.path:
-    sys.path.insert(0, str(_gen_dir))
-
+# Proto stubs come from the shared `rat-protos` package (ADR-024 cleanup C):
+# `from common.v1 import common_pb2` is satisfied without any per-service gen/.
 # Configure logging — JSON one-object-per-line so ratd's slog output and
 # runner output are interoperable for cross-service grep'ing by request_id.
 from rat_runner.json_log import configure_json_logging  # noqa: E402

@@ -18,14 +18,8 @@ Environment variables (see also rat_query.config):
 
 import logging
 import os
-import sys
-from pathlib import Path
 
-# Add gen/ directory to sys.path so generated proto stubs can use bare imports
-# (e.g., `from common.v1 import common_pb2`)
-_gen_dir = Path(__file__).parent / "gen"
-if str(_gen_dir) not in sys.path:
-    sys.path.insert(0, str(_gen_dir))
+# Proto stubs come from the shared `rat-protos` package (ADR-024 cleanup C).
 
 # Configure logging
 logging.basicConfig(

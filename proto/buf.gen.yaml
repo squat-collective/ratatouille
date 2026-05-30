@@ -12,38 +12,15 @@ plugins:
   - remote: buf.build/connectrpc/go
     out: ../platform/gen
     opt: paths=source_relative
-  # Python (runner) — pin protocolbuffers/python to v33.x so the generated
-  # gencode targets the protobuf 6.33.x Python runtime we install. Unpinned
-  # defaults to the latest plugin version (currently v35+), which emits
-  # gencode targeting protobuf 7.x — there is no protobuf 7.x Python
-  # runtime on PyPI yet, so the gencode would reject the only installable
-  # runtime at import time. Bump in lockstep with the runtime pin in
-  # runner/pyproject.toml when upgrading.
+  # Python — single shared codegen target: rat-protos (ADR-024 cleanup C).
+  # Runner, ratq, and every plugin depend on this one package instead of vendoring
+  # their own per-service gen/ copy. Pin protocolbuffers/python to v33.x so the
+  # gencode targets the protobuf 6.33.x Python runtime we install (newer plugins
+  # emit gencode for protobuf 7.x, which has no Python runtime on PyPI yet).
   - remote: buf.build/protocolbuffers/python:v33.0
-    out: ../runner/src/rat_runner/gen
+    out: ../proto/sdk-python/src
   - remote: buf.build/grpc/python
-    out: ../runner/src/rat_runner/gen
-  # Python (query) — same pin as runner.
-  - remote: buf.build/protocolbuffers/python:v33.0
-    out: ../query/src/rat_query/gen
-  - remote: buf.build/grpc/python
-    out: ../query/src/rat_query/gen
-  # Python (rat-engine-duckdb reference engine plugin) — same v33 pin. Reference
-  # services live in plugins/ and vendor their own gen/ on sys.path (like runner).
-  - remote: buf.build/protocolbuffers/python:v33.0
-    out: ../plugins/rat-engine-duckdb/src/rat_engine_duckdb/gen
-  - remote: buf.build/grpc/python
-    out: ../plugins/rat-engine-duckdb/src/rat_engine_duckdb/gen
-  # Python (rat-storage-s3 reference storage plugin)
-  - remote: buf.build/protocolbuffers/python:v33.0
-    out: ../plugins/rat-storage-s3/src/rat_storage_s3/gen
-  - remote: buf.build/grpc/python
-    out: ../plugins/rat-storage-s3/src/rat_storage_s3/gen
-  # Python (rat-catalog reference catalog plugin — protocol-aware)
-  - remote: buf.build/protocolbuffers/python:v33.0
-    out: ../plugins/rat-catalog/src/rat_catalog/gen
-  - remote: buf.build/grpc/python
-    out: ../plugins/rat-catalog/src/rat_catalog/gen
+    out: ../proto/sdk-python/src
   # TypeScript (SDK + portal)
   - remote: buf.build/connectrpc/es
     out: ../sdk-typescript/src/gen
