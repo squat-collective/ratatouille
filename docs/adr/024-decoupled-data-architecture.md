@@ -1,6 +1,6 @@
 # ADR-024: Decoupled data architecture (Storage / Catalog / Engine axes)
 
-## Status: Proposed (2026-05-29)
+## Status: Accepted (2026-05-30)
 
 ## Context
 
