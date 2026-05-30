@@ -1,12 +1,11 @@
-"""Pipeline executor — orchestrates the full pipeline lifecycle.
+"""Pipeline executor — orchestrates the engine/v1 + catalog/v1 + storage/v1 composition.
 
-Execution flow:
-  Phase 0: Create ephemeral Nessie branch
-  Phase 1: Detect pipeline type (.py first, then .sql), read config.yaml
-  Phase 2: Build result table (SQL or Python path)
-  Phase 3: Write to Iceberg (full_refresh → overwrite, incremental → merge)
-  Phase 4: Quality tests on ephemeral branch
-  Phase 5: Branch resolution (merge or delete based on quality results)
+The runner is a pure orchestrator (ADR-024): it never touches table bytes. Per run:
+  Phase 0: catalog/v1 create_branch (when the catalog supports branching)
+  Phase 1: detect pipeline type + load merged config from S3
+  Phase E: engine.Execute does the transform + write
+  Phase 4: quality tests via engine.Query against the run branch
+  Phase 5: catalog/v1 merge_branch (success) or delete (failure / quality fail)
 """
 
 from __future__ import annotations
@@ -14,12 +13,8 @@ from __future__ import annotations
 import logging
 import os
 import time
-import urllib.error
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    import pyarrow as pa
+from typing import Any
 
 from common.v1 import data_plane_pb2  # type: ignore[import-untyped]
 from engine.v1 import engine_pb2  # type: ignore[import-untyped]
@@ -29,7 +24,6 @@ from rat_runner.capabilities import AxisCapabilities, check_composition
 from rat_runner.catalog_client import CatalogClient
 from rat_runner.config import (
     CatalogConfig,
-    DuckDBConfig,
     EngineConfig,
     NessieConfig,
     S3Config,
@@ -42,33 +36,12 @@ from rat_runner.config import (
     read_s3_text_version,
 )
 from rat_runner.descriptors import layer_enum
-from rat_runner.engine import DuckDBEngine
 from rat_runner.engine_client import EngineClient
-from rat_runner.failed_merge_audit import record_failed_merge
-from rat_runner.iceberg import (
-    append_iceberg,
-    delete_insert_iceberg,
-    merge_iceberg,
-    read_watermark,
-    scd2_iceberg,
-    snapshot_iceberg,
-    write_iceberg,
-)
 from rat_runner.json_log import clear_run_context, set_run_context
 from rat_runner.log import RunLogger, run_log_extras
-from rat_runner.maintenance import run_maintenance
-from rat_runner.models import MergeStrategy, PipelineConfig, QualityTestResult, RunState, RunStatus
-from rat_runner.nessie import (
-    BRANCH_CREATE_MAX_RETRIES,
-    MERGE_CONFLICT_MAX_RETRIES,
-    _get_reference,
-    create_branch,
-    delete_branch,
-    merge_branch,
-)
+from rat_runner.models import PipelineConfig, QualityTestResult, RunState, RunStatus
 from rat_runner.plugin_protocols import HookContext
 from rat_runner.plugin_registry import PluginRegistry
-from rat_runner.python_exec import execute_python_pipeline
 from rat_runner.quality import has_error_failures, run_quality_tests
 from rat_runner.storage_client import StorageClient
 from rat_runner.templating import (
@@ -118,27 +91,21 @@ class _PipelineContext:
     raw_sql: str | None = None
     config: PipelineConfig | None = None
 
-    # Set during Phase 2
-    engine: DuckDBEngine | None = None
+    # Set during the engine execute phase (kept for hook payload metadata).
     table_name: str = ""
     location: str = ""
-    result: pa.Table | None = None
     row_count: int = 0
 
-    # Set in Phase 5 when a merge attempt fails terminally. When True the
-    # finally block MUST NOT delete the ephemeral branch — it holds data
-    # that Phase 3 wrote and Phase 4 quality-tested but couldn't merge
-    # into main. An operator will recover it manually via the
-    # `failed_merges` audit row.
+    # Set in Phase 5 when a merge attempt fails terminally. When True the finally
+    # block MUST NOT delete the ephemeral branch — it holds data the engine wrote
+    # and Phase 4 quality-tested but couldn't merge into main. An operator
+    # recovers it from the retained branch + the structured ERROR log.
     retain_branch: bool = False
 
-    # Engine mode: the resolved data-plane composition (set before Phase 0).
+    # The resolved data-plane composition + the catalog/v1 client + the vended
+    # StorageDescriptor, all set early in execute_pipeline.
     data_plane: DataPlane | None = None
-    # Engine mode: catalog/v1 client — branch lifecycle + GetTable descriptor
-    # vending. None in the legacy local path (gated until #10).
     catalog_client: CatalogClient | None = None
-    # Engine mode: the vended StorageDescriptor (set in _phase_engine_execute,
-    # reused by phase-4 quality which assembles its own input descriptors).
     storage_descriptor: Any = None
 
 
@@ -198,36 +165,6 @@ def _read_versioned(
 
 
 # ── Phase 0: Create ephemeral Nessie branch ──────────────────────────
-
-
-def _phase0_create_branch(ctx: _PipelineContext) -> None:
-    """Create an ephemeral Nessie branch for isolation.
-
-    Branch creation is REQUIRED — failure here aborts the run. The Nessie
-    client itself retries transient errors (5xx / network / timeout) up to
-    BRANCH_CREATE_MAX_RETRIES times with exponential backoff; permanent
-    errors (4xx, invalid name) fail immediately. If we reach the except
-    clause, retries are already exhausted or the error was non-transient.
-
-    Falling back to main was the previous behaviour but caused concurrent
-    runs to race and produce duplicate rows on main, with no rollback
-    possible when quality tests later failed.
-    """
-    _check_cancelled(ctx.run)
-    ctx.branch_name = f"run-{ctx.run.run_id}"
-    ctx.log.info(f"Creating ephemeral branch '{ctx.branch_name}'")
-    try:
-        create_branch(ctx.nessie_config, ctx.branch_name, from_branch="main")
-    except Exception as e:
-        # Re-raise with a clear, attributable error message. The Nessie
-        # client has already exhausted retries for transient errors.
-        attempts = BRANCH_CREATE_MAX_RETRIES + 1
-        raise RuntimeError(f"branch creation failed after {attempts} attempts: {e}") from e
-    ctx.run.branch = ctx.branch_name
-    ctx.log.info(f"Branch '{ctx.branch_name}' created")
-
-
-# ── Phase 1: Detect pipeline type + read config ─────────────────────
 
 
 def _phase1_detect_and_load(ctx: _PipelineContext) -> None:
@@ -306,277 +243,6 @@ def _phase1_detect_and_load(ctx: _PipelineContext) -> None:
 # ── Phase 2: Build result table ──────────────────────────────────────
 
 
-def _phase2_build_result(ctx: _PipelineContext) -> None:
-    """Execute the pipeline (SQL or Python) and produce the result Arrow table."""
-    _check_cancelled(ctx.run)
-    ns, layer, name = ctx.run.namespace, ctx.run.layer, ctx.run.pipeline_name
-
-    ctx.engine = DuckDBEngine(ctx.s3_config, DuckDBConfig.from_env())
-    ctx.table_name = f"{ns}.{layer}.{name}"
-    ctx.location = f"s3://{ctx.s3_config.bucket}/{ns}/{layer}/{name}/"
-
-    if ctx.pipeline_type == "python":
-        ctx.log.info("Executing Python pipeline")
-        ctx.result = execute_python_pipeline(
-            ctx.raw_py,  # type: ignore[arg-type]
-            ctx.engine,
-            ns,
-            layer,
-            name,
-            ctx.s3_config,
-            ctx.nessie_config,
-            ctx.config,
-        )
-    elif ctx.pipeline_type == "sql":
-        ctx.result = _execute_sql_path(ctx)
-    else:
-        ctx.result = _execute_plugin_type_path(ctx)
-
-    ctx.row_count = len(ctx.result)
-    ctx.log.info(f"Query returned {ctx.row_count} rows")
-
-
-def _execute_plugin_type_path(ctx: _PipelineContext) -> pa.Table:
-    """Execute a pipeline whose type is provided by a runner plugin."""
-    plugin_type = ctx.registry.get_pipeline_type(ctx.pipeline_type)
-    if plugin_type is None:
-        raise RuntimeError(f"No plugin registered for pipeline type '{ctx.pipeline_type}'")
-    ns, layer, name = ctx.run.namespace, ctx.run.layer, ctx.run.pipeline_name
-    ctx.log.info(f"Executing '{ctx.pipeline_type}' pipeline via plugin")
-    return plugin_type.execute(
-        ctx.source,
-        ns,
-        layer,
-        name,
-        ctx.s3_config,
-        ctx.nessie_config,
-        ctx.config,
-    )
-
-
-def _execute_sql_path(ctx: _PipelineContext) -> pa.Table:
-    """Handle the SQL pipeline path: watermark read, compile, execute."""
-    watermark_value: str | None = None
-    if (
-        ctx.config is not None
-        and ctx.config.merge_strategy in (MergeStrategy.INCREMENTAL, MergeStrategy.DELETE_INSERT)
-        and ctx.config.watermark_column
-    ):
-        ctx.log.info(f"Reading watermark for column '{ctx.config.watermark_column}'")
-        watermark_value = read_watermark(
-            ctx.table_name,
-            ctx.config.watermark_column,
-            ctx.s3_config,
-            ctx.nessie_config,
-            branch="main",
-            conn=ctx.engine.conn if ctx.engine else None,
-        )
-        if watermark_value:
-            ctx.log.info(f"Watermark value: {watermark_value}")
-        else:
-            ctx.log.info("No watermark found (first run or empty table)")
-
-    ns, layer, name = ctx.run.namespace, ctx.run.layer, ctx.run.pipeline_name
-
-    # Collect plugin Jinja helpers from registry
-    plugin_helpers: dict[str, object] = {}
-    for helper_name, helper in ctx.registry.get_helpers().items():
-        plugin_helpers[helper_name] = helper
-
-    ctx.log.info("Compiling SQL template")
-    compiled_sql = compile_sql(
-        ctx.raw_sql,  # type: ignore[arg-type]
-        ns,
-        layer,
-        name,
-        ctx.s3_config,
-        ctx.nessie_config,
-        config=ctx.config,
-        watermark_value=watermark_value,
-        plugin_helpers=plugin_helpers or None,
-    )
-    ctx.log.debug(f"Compiled SQL:\n{compiled_sql}")
-
-    ctx.log.info("Executing SQL via DuckDB")
-    assert ctx.engine is not None
-    return ctx.engine.query_arrow(compiled_sql)
-
-
-# ── Phase 3: Write to Iceberg ────────────────────────────────────────
-
-
-def _phase3_write_iceberg(ctx: _PipelineContext) -> None:
-    """Write the result table to Iceberg using the configured merge strategy.
-
-    Checks the plugin registry first for a matching strategy (including built-in
-    strategies when installed as a package). Falls back to direct dispatch when
-    the registry doesn't have the strategy (e.g. development/testing).
-    """
-    _check_cancelled(ctx.run)
-    assert ctx.result is not None
-
-    if ctx.row_count == 0:
-        ctx.log.info("Zero rows — skipping Iceberg write")
-        ctx.run.rows_written = 0
-        return
-
-    strategy = ctx.config.merge_strategy if ctx.config else MergeStrategy.FULL_REFRESH
-
-    # Try plugin registry first (includes built-in strategies when installed as package)
-    plugin_strategy = ctx.registry.get_strategy(str(strategy))
-    if plugin_strategy:
-        ctx.log.info(f"Using strategy '{strategy}' via plugin registry")
-        _engine_conn = ctx.engine.conn if ctx.engine else None
-        rows = plugin_strategy.execute(
-            ctx.result,
-            ctx.table_name,
-            ctx.s3_config,
-            ctx.nessie_config,
-            ctx.location,
-            ctx.config,
-            branch=ctx.branch_name,
-            conn=_engine_conn,
-        )
-        ctx.run.rows_written = rows
-        ctx.log.info(f"Strategy '{strategy}' complete ({rows} rows)")
-        return
-
-    # Fall back to built-in dispatch (for development/testing without package install)
-    _engine_conn = ctx.engine.conn if ctx.engine else None
-    _partition_by = ctx.config.partition_by if ctx.config and ctx.config.partition_by else None
-
-    if strategy == MergeStrategy.INCREMENTAL and ctx.config and ctx.config.unique_key:
-        ctx.log.info(f"Merging {ctx.row_count} rows into Iceberg table {ctx.table_name}")
-        merged_rows = merge_iceberg(
-            ctx.result,
-            ctx.table_name,
-            ctx.config.unique_key,
-            ctx.s3_config,
-            ctx.nessie_config,
-            ctx.location,
-            branch=ctx.branch_name,
-            conn=_engine_conn,
-            partition_by=_partition_by,
-        )
-        ctx.run.rows_written = merged_rows
-        ctx.log.info(f"Merge complete ({merged_rows} total rows)")
-
-    elif strategy == MergeStrategy.APPEND_ONLY:
-        ctx.log.info(f"Appending {ctx.row_count} rows to Iceberg table {ctx.table_name}")
-        appended = append_iceberg(
-            ctx.result,
-            ctx.table_name,
-            ctx.s3_config,
-            ctx.nessie_config,
-            ctx.location,
-            branch=ctx.branch_name,
-            partition_by=_partition_by,
-        )
-        ctx.run.rows_written = appended
-        ctx.log.info(f"Append complete ({appended} rows)")
-
-    elif strategy == MergeStrategy.DELETE_INSERT and ctx.config and ctx.config.unique_key:
-        ctx.log.info(f"Delete-insert {ctx.row_count} rows into Iceberg table {ctx.table_name}")
-        total = delete_insert_iceberg(
-            ctx.result,
-            ctx.table_name,
-            ctx.config.unique_key,
-            ctx.s3_config,
-            ctx.nessie_config,
-            ctx.location,
-            branch=ctx.branch_name,
-            conn=_engine_conn,
-            partition_by=_partition_by,
-        )
-        ctx.run.rows_written = total
-        ctx.log.info(f"Delete-insert complete ({total} total rows)")
-
-    elif strategy == MergeStrategy.SCD2 and ctx.config and ctx.config.unique_key:
-        ctx.log.info(f"SCD2 merge {ctx.row_count} rows into Iceberg table {ctx.table_name}")
-        total = scd2_iceberg(
-            ctx.result,
-            ctx.table_name,
-            ctx.config.unique_key,
-            ctx.s3_config,
-            ctx.nessie_config,
-            ctx.location,
-            valid_from_col=ctx.config.scd_valid_from,
-            valid_to_col=ctx.config.scd_valid_to,
-            branch=ctx.branch_name,
-            conn=_engine_conn,
-            partition_by=_partition_by,
-        )
-        ctx.run.rows_written = total
-        ctx.log.info(f"SCD2 merge complete ({total} total rows)")
-
-    elif strategy == MergeStrategy.SNAPSHOT and ctx.config and ctx.config.partition_column:
-        ctx.log.info(f"Snapshot {ctx.row_count} rows into Iceberg table {ctx.table_name}")
-        total = snapshot_iceberg(
-            ctx.result,
-            ctx.table_name,
-            ctx.config.partition_column,
-            ctx.s3_config,
-            ctx.nessie_config,
-            ctx.location,
-            branch=ctx.branch_name,
-            conn=_engine_conn,
-            partition_by=_partition_by,
-        )
-        ctx.run.rows_written = total
-        ctx.log.info(f"Snapshot complete ({total} total rows)")
-
-    else:
-        _write_full_refresh_fallback(ctx, strategy)
-
-
-def _write_full_refresh_fallback(ctx: _PipelineContext, strategy: MergeStrategy) -> None:
-    """Write using full_refresh, warning if the intended strategy lacked required config."""
-    assert ctx.result is not None
-
-    if strategy in (MergeStrategy.INCREMENTAL, MergeStrategy.DELETE_INSERT, MergeStrategy.SCD2):
-        if not (ctx.config and ctx.config.unique_key):
-            ctx.log.warn(
-                f"Strategy '{strategy}' requires unique_key — falling back to full_refresh"
-            )
-    elif strategy == MergeStrategy.SNAPSHOT and not (ctx.config and ctx.config.partition_column):
-        ctx.log.warn("Strategy 'snapshot' requires partition_column — falling back to full_refresh")
-
-    ctx.log.info(f"Writing {ctx.row_count} rows to Iceberg table {ctx.table_name}")
-    partition_by = ctx.config.partition_by if ctx.config else None
-    write_iceberg(
-        ctx.result,
-        ctx.table_name,
-        ctx.s3_config,
-        ctx.nessie_config,
-        ctx.location,
-        branch=ctx.branch_name,
-        partition_by=partition_by or None,
-    )
-    ctx.run.rows_written = ctx.row_count
-    ctx.log.info("Iceberg write complete")
-
-
-# ── Phase 4: Quality tests ───────────────────────────────────────────
-
-
-def _local_quality_runner(ctx: _PipelineContext, timeout_seconds: int) -> Any:
-    """Quality runner for the local path: compile (iceberg_scan refs) + local DuckDB."""
-
-    def run_test(raw: str) -> tuple[str, Any]:
-        assert ctx.engine is not None
-        compiled = compile_sql(
-            raw,
-            ctx.run.namespace,
-            ctx.run.layer,
-            ctx.run.pipeline_name,
-            ctx.s3_config,
-            ctx.nessie_config,
-        )
-        return compiled, lambda: ctx.engine.query_arrow(compiled, timeout_seconds=timeout_seconds)
-
-    return run_test
-
-
 def _engine_quality_runner(ctx: _PipelineContext, client: EngineClient) -> Any:
     """Quality runner for engine mode: logical-ref SQL + engine.Query on the run branch.
 
@@ -609,34 +275,20 @@ def _engine_quality_runner(ctx: _PipelineContext, client: EngineClient) -> Any:
 
 
 def _phase4_quality_tests(ctx: _PipelineContext) -> list[QualityTestResult]:
-    """Run quality tests against the freshly written table; return results.
-
-    Engine mode runs them via engine.Query; the local path uses the embedded DuckDB.
-    """
+    """Run quality tests against the freshly written table via engine.Query."""
     _check_cancelled(ctx.run)
-    if _engine_mode():
-        assert ctx.data_plane is not None
-        client = EngineClient(ctx.data_plane.engine_addr)
-        try:
-            quality_results = run_quality_tests(
-                ctx.run,
-                _engine_quality_runner(ctx, client),
-                ctx.s3_config,
-                ctx.log,
-                published_versions=ctx.published_versions or None,
-            )
-        finally:
-            client.close()
-    else:
-        assert ctx.engine is not None
-        timeout = DuckDBConfig.from_env().quality_test_timeout_seconds
+    assert ctx.data_plane is not None
+    client = EngineClient(ctx.data_plane.engine_addr)
+    try:
         quality_results = run_quality_tests(
             ctx.run,
-            _local_quality_runner(ctx, timeout),
+            _engine_quality_runner(ctx, client),
             ctx.s3_config,
             ctx.log,
             published_versions=ctx.published_versions or None,
         )
+    finally:
+        client.close()
     ctx.run.quality_results = quality_results
     return quality_results
 
@@ -644,138 +296,20 @@ def _phase4_quality_tests(ctx: _PipelineContext) -> list[QualityTestResult]:
 # ── Phase 5: Branch resolution ───────────────────────────────────────
 
 
-def _classify_merge_error(exc: BaseException) -> tuple[str, str]:
-    """Return (error_kind, human_message) for an exception raised by merge_branch.
-
-    Categories:
-      * "conflict_exhausted" — 409 CONFLICT, even after internal refetch
-        retries. The target ref kept moving; another long-running pipeline
-        likely has it pinned.
-      * "transient_exhausted" — 5xx / network / timeout, after the outer
-        retry_on_transient decorator gave up.
-      * "permanent_4xx" — any other 4xx (400 bad request, 404 not found,
-        403 forbidden) — request is malformed or the branch was already
-        gone.
-      * "unknown" — anything else.
-    """
-    if isinstance(exc, urllib.error.HTTPError):
-        if exc.code == 409:
-            return "conflict_exhausted", (
-                f"target moved during merge window after "
-                f"{MERGE_CONFLICT_MAX_RETRIES} refetch attempts (HTTP 409)"
-            )
-        if 400 <= exc.code < 500:
-            return "permanent_4xx", f"HTTP {exc.code}: {exc.reason}"
-        if exc.code >= 500:
-            return "transient_exhausted", f"HTTP {exc.code}: {exc.reason}"
-    if isinstance(exc, urllib.error.URLError | TimeoutError):
-        return "transient_exhausted", f"{type(exc).__name__}: {exc}"
-    return "unknown", f"{type(exc).__name__}: {exc}"
-
-
-def _phase5_resolve_branch(ctx: _PipelineContext, quality_results: list[QualityTestResult]) -> None:
-    """Merge or discard the ephemeral branch based on quality test results.
-
-    Since Phase 0 guarantees branch creation succeeded (or aborted the run),
-    there is always an ephemeral branch to resolve here: merge to main on
-    quality pass, delete on quality failure.
-
-    On terminal merge failure (transient retries exhausted, 409 refetches
-    exhausted, or permanent 4xx) the branch is RETAINED — Phase 3 wrote
-    data and Phase 4 quality-tested it, and silently dropping it would
-    erase work an operator can recover. We POST an audit record to ratd
-    so the failure shows up in the `failed_merges` table.
-    """
-    if has_error_failures(quality_results):
-        ctx.log.error("Quality tests failed — discarding branch (no data on main)")
-        try:
-            delete_branch(ctx.nessie_config, ctx.branch_name)
-        except Exception as e:
-            ctx.log.warn(f"Failed to delete branch: {e}")
-        ctx.run.status = RunStatus.FAILED
-        ctx.run.error = _format_quality_error(quality_results)
-        return
-
-    ctx.log.info(f"Merging branch '{ctx.branch_name}' to main")
-
-    # Best-effort: capture the source/target hashes BEFORE attempting the
-    # merge so the audit row has something useful even if Nessie blows up
-    # mid-call. Failures here are silenced — they're not the audit's job
-    # to surface, and the merge call below will reproduce them.
-    source_hash: str | None = None
-    target_hash: str | None = None
-    try:
-        source_hash = _get_reference(ctx.nessie_config, ctx.branch_name).get("hash")
-        target_hash = _get_reference(ctx.nessie_config, "main").get("hash")
-    except Exception:
-        pass
-
-    try:
-        merge_branch(ctx.nessie_config, ctx.branch_name, target="main")
-        ctx.log.info("Branch merged to main")
-    except Exception as e:
-        ctx.retain_branch = True
-        error_kind, human = _classify_merge_error(e)
-        msg = f"branch merge failed: {human} — branch {ctx.branch_name} retained for recovery"
-        # Structured ERROR log with the fields a human will grep for.
-        logger.error(
-            "Phase 5 merge failed — branch retained",
-            extra={
-                "branch": ctx.branch_name,
-                "run": ctx.run.run_id,
-                "error_kind": error_kind,
-                "merge_lost_data": True,
-            },
-            exc_info=True,
-        )
-        ctx.log.error(msg)
-        try:
-            record_failed_merge(
-                ctx.run,
-                ctx.branch_name,
-                source_hash,
-                target_hash,
-                error_kind=error_kind,
-                error_message=str(e),
-            )
-        except Exception as audit_exc:  # noqa: BLE001 — never let audit kill the run
-            logger.warning(
-                "failed_merges audit POST raised: %s",
-                audit_exc,
-                extra={"branch": ctx.branch_name, "run": ctx.run.run_id},
-            )
-        ctx.run.status = RunStatus.FAILED
-        ctx.run.error = msg
-        return
-
-    _post_success(ctx)
-
-
-# ── Post-success: archive + maintenance ──────────────────────────────
-
-
 def _post_success(ctx: _PipelineContext) -> None:
-    """Run post-success tasks: mark success, archive landing zones, run Iceberg maintenance."""
+    """Mark success, archive landing zones (if requested).
+
+    Iceberg maintenance (snapshot expiry, orphan removal) used to run here; it now
+    belongs in the engine plugin or a dedicated compaction plugin, not the runner.
+    """
     ctx.run.status = RunStatus.SUCCESS
     ctx.log.info("Pipeline completed successfully")
 
-    # Archive landing zone files (opt-in)
     if ctx.config is not None and ctx.config.archive_landing_zones:
         ns = ctx.run.namespace
         ctx.run.archived_zones = _archive_landing_zones(
-            ctx.source,
-            ns,
-            ctx.run.run_id,
-            ctx.s3_config,
-            ctx.log,
+            ctx.source, ns, ctx.run.run_id, ctx.s3_config, ctx.log
         )
-
-    # Iceberg maintenance (best-effort)
-    if ctx.row_count > 0:
-        try:
-            run_maintenance(ctx.table_name, ctx.s3_config, ctx.nessie_config, log=ctx.log)
-        except Exception as e:
-            ctx.log.warn(f"Iceberg maintenance failed (non-fatal): {e}")
 
 
 # ── Public entry point ───────────────────────────────────────────────
@@ -796,11 +330,6 @@ def _build_hook_context(ctx: _PipelineContext) -> HookContext:
             "row_count": ctx.row_count,
         },
     )
-
-
-def _engine_mode() -> bool:
-    """Transitional opt-in for the decoupled engine path (ADR-024); removed in #10."""
-    return os.environ.get("RAT_ENGINE_MODE", "").lower() in ("1", "true", "yes")
 
 
 def _assemble_table_descriptor(
@@ -1083,26 +612,19 @@ def execute_pipeline(
     )
 
     try:
-        branching = True
-        if _engine_mode():
-            ctx.data_plane = _resolve_data_plane(ctx)
-            branching = ctx.data_plane.supports_branching
-            # The catalog/v1 client is needed for ALL engine-mode runs (GetTable
-            # vends descriptors even when the catalog can't branch).
-            ctx.catalog_client = CatalogClient(ctx.data_plane.catalog_addr)
-            # Fail-fast: reject an incompatible binding before any side effects.
-            _validate_composition(ctx)
+        # ADR-024 end state: the runner is a pure orchestrator. Resolve the data
+        # plane + catalog client + validate the composition unconditionally.
+        ctx.data_plane = _resolve_data_plane(ctx)
+        branching = ctx.data_plane.supports_branching
+        ctx.catalog_client = CatalogClient(ctx.data_plane.catalog_addr)
+        _validate_composition(ctx)
 
         if branching:
-            if ctx.catalog_client is not None:
-                # Engine mode: branch lifecycle goes through the catalog axis.
-                ctx.branch_name = f"run-{ctx.run.run_id}"
-                ctx.log.info(f"Creating ephemeral branch '{ctx.branch_name}' via catalog/v1")
-                ctx.catalog_client.create_branch(ctx.branch_name, "main")
-                ctx.run.branch = ctx.branch_name
-                ctx.log.info(f"Branch '{ctx.branch_name}' created")
-            else:
-                _phase0_create_branch(ctx)
+            ctx.branch_name = f"run-{ctx.run.run_id}"
+            ctx.log.info(f"Creating ephemeral branch '{ctx.branch_name}' via catalog/v1")
+            ctx.catalog_client.create_branch(ctx.branch_name, "main")
+            ctx.run.branch = ctx.branch_name
+            ctx.log.info(f"Branch '{ctx.branch_name}' created")
         else:
             ctx.branch_name = "main"
             ctx.log.info(
@@ -1111,40 +633,24 @@ def execute_pipeline(
             )
         _phase1_detect_and_load(ctx)
 
-        # Dispatch pre_execute hooks
         hook_ctx = _build_hook_context(ctx)
         registry.dispatch_hooks("pre_execute", hook_ctx)
 
-        if _engine_mode():
-            # Decoupled path (ADR-024): execute + write happen in one engine/v1 call.
-            _phase_engine_execute(ctx)
-        else:
-            _phase2_build_result(ctx)
+        _phase_engine_execute(ctx)
 
-            # Dispatch pre_write hooks
-            hook_ctx = _build_hook_context(ctx)
-            registry.dispatch_hooks("pre_write", hook_ctx)
-
-            _phase3_write_iceberg(ctx)
-
-        # Dispatch post_write hooks
         hook_ctx = _build_hook_context(ctx)
         registry.dispatch_hooks("post_write", hook_ctx)
 
-        # Dispatch pre_quality hooks
         hook_ctx = _build_hook_context(ctx)
         registry.dispatch_hooks("pre_quality", hook_ctx)
 
         quality_results = _phase4_quality_tests(ctx)
 
-        # Dispatch post_quality hooks
         hook_ctx = _build_hook_context(ctx)
         registry.dispatch_hooks("post_quality", hook_ctx)
 
-        if branching and ctx.catalog_client is not None:
+        if branching:
             _resolve_branch_via_catalog(ctx, quality_results)
-        elif branching:
-            _phase5_resolve_branch(ctx, quality_results)
         elif has_error_failures(quality_results):
             ctx.run.status = RunStatus.FAILED
             ctx.run.error = _format_quality_error(quality_results)
@@ -1178,10 +684,8 @@ def execute_pipeline(
         # leave it for the operator (see `failed_merges` audit row).
         if run.branch and run.branch != "main" and not ctx.retain_branch:
             try:
-                if ctx.catalog_client is not None:
-                    ctx.catalog_client.delete_branch(run.branch)
-                else:
-                    delete_branch(nessie_config, run.branch)
+                assert ctx.catalog_client is not None
+                ctx.catalog_client.delete_branch(run.branch)
             except Exception:
                 logger.warning(
                     "Failed to delete ephemeral branch '%s'",
@@ -1196,8 +700,6 @@ def execute_pipeline(
                 extra={**run_log_extras(run), "merge_lost_data": True},
             )
 
-        if ctx.engine is not None:
-            ctx.engine.close()
         if ctx.catalog_client is not None:
             ctx.catalog_client.close()
         elapsed_ms = int((time.monotonic() - start) * 1000)

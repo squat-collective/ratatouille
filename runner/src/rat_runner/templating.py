@@ -78,29 +78,28 @@ def compile_sql(
     watermark_value: str | None = None,
     landing_zone_fn: Callable[[str], str] | None = None,
     plugin_helpers: dict[str, Callable[..., object]] | None = None,
-    logical_refs: bool = False,
+    logical_refs: bool = True,
 ) -> str:
-    """Compile a Jinja SQL template with ref() resolution.
+    """Compile a Jinja SQL template with engine-neutral ref() resolution.
 
-    With ``logical_refs=True``, ref()/this resolve to an engine-neutral
-    ``"layer"."name"`` identifier with NO catalog I/O — the decoupled engine path
-    (ADR-024), where the engine maps each logical name to a native scan via the
-    input TableDescriptor. Otherwise they resolve to ``iceberg_scan()`` via the
-    catalog (the legacy in-process path).
+    ref()/this resolve to ``"layer"."name"`` logical identifiers with NO catalog
+    I/O — the engine maps each logical name to a native scan via the input
+    TableDescriptor. (``logical_refs`` is kept as a kwarg for caller compat; the
+    legacy iceberg_scan() resolution was removed with the embedded path.)
 
     Available in templates:
-    - ref('layer.name') or ref('ns.layer.name') — resolves to iceberg_scan() via catalog
-    - this — the current pipeline's target table identifier (also uses iceberg_scan)
+    - ref('layer.name') or ref('ns.layer.name') — engine-neutral logical ref
+    - this — the current pipeline's target ("layer"."name")
     - run_started_at — ISO timestamp of the current run
     - is_incremental() — True when config.merge_strategy == "incremental"
     - watermark_value — max value of the watermark column (incremental pipelines)
     """
+    del logical_refs  # accepted for caller compat; always logical now
+    del nessie_config  # no longer needed (no catalog I/O in compile)
     run_started_at = datetime.now(UTC).isoformat()
 
     def ref_fn(table_ref: str) -> str:
-        if logical_refs:
-            return _logical_ref(table_ref)
-        return _resolve_ref(table_ref, namespace, s3_config, nessie_config)
+        return _logical_ref(table_ref)
 
     if landing_zone_fn is None:
 
@@ -160,53 +159,6 @@ def compile_sql(
         output_lines.append(line)
 
     return "\n".join(output_lines).strip()
-
-
-def _resolve_ref(
-    table_ref: str,
-    namespace: str,
-    s3_config: S3Config,
-    nessie_config: NessieConfig,
-) -> str:
-    """Resolve a ref('...') to an iceberg_scan() expression.
-
-    Supports:
-    - 2-part: "layer.name" — auto-prefixes current namespace
-    - 3-part: "ns.layer.name" — cross-namespace reference
-
-    Resolves the exact metadata file path from the Nessie catalog so DuckDB
-    doesn't need version-hint.text or unsafe version guessing.
-    Falls back to the table directory path if the catalog is unreachable.
-    """
-    parts = table_ref.split(".", 2)
-    if len(parts) == 2:
-        ref_ns = namespace
-        ref_layer, ref_name = parts
-    elif len(parts) == 3:
-        ref_ns, ref_layer, ref_name = parts
-    else:
-        raise ValueError(f"Invalid ref: '{table_ref}'. Expected 'layer.name' or 'ns.layer.name'.")
-
-    from rat_runner.iceberg import _escape_sql_string
-
-    # Try to resolve the exact metadata file from the Nessie catalog.
-    # Passing the .metadata.json path directly to iceberg_scan() avoids
-    # the need for version-hint.text or unsafe version guessing.
-    try:
-        from rat_runner.iceberg import get_catalog
-
-        catalog = get_catalog(s3_config, nessie_config)
-        table_name = f"{ref_ns}.{ref_layer}.{ref_name}"
-        table = catalog.load_table(table_name)
-        metadata_location = table.metadata_location
-        safe_location = _escape_sql_string(metadata_location)
-        return f"iceberg_scan('{safe_location}')"
-    except Exception as e:
-        logger.warning("Failed to resolve ref '%s' via catalog, using fallback: %s", table_ref, e)
-        # Fallback: use the table directory path (requires version-hint.text)
-        table_path = f"s3://{s3_config.bucket}/{ref_ns}/{ref_layer}/{ref_name}/"
-        safe_path = _escape_sql_string(table_path)
-        return f"iceberg_scan('{safe_path}', allow_moved_paths = true)"
 
 
 def _logical_ref(table_ref: str) -> str:

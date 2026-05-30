@@ -13,7 +13,6 @@ from rat_runner.config import (
     read_s3_text,
     read_s3_text_version,
 )
-from rat_runner.engine import QueryTimeoutError
 from rat_runner.models import QualityTestResult, RunState
 
 if TYPE_CHECKING:
@@ -165,36 +164,20 @@ def run_quality_test(
             tags=tags,
             remediation=remediation,
         )
-    except QueryTimeoutError as e:
-        # Watchdog fired (local DuckDB path) — record a deliberate failure (NOT an
-        # error) so the rest of the quality suite keeps executing. The exception
-        # carries the actual deadline that tripped.
-        elapsed_ms = int((time.monotonic() - start) * 1000)
-        msg = str(e) or "quality test timed out"
-        log.error(f"Quality test '{test_name}': {msg}")
-        return QualityTestResult(
-            test_name=test_name,
-            test_file=key,
-            severity=severity,
-            status="fail",
-            row_count=0,
-            message=msg,
-            duration_ms=elapsed_ms,
-            description=description,
-            compiled_sql=compiled,
-            tags=tags,
-            remediation=remediation,
-        )
     except Exception as e:
+        # The injected run_test (engine.Query in production) raised. Record as
+        # "error" so the suite keeps executing the next test rather than crashing
+        # the whole run on one bad assertion.
         elapsed_ms = int((time.monotonic() - start) * 1000)
-        log.error(f"Quality test '{test_name}' errored: {e}")
+        msg = str(e) or "quality test failed"
+        log.error(f"Quality test '{test_name}' errored: {msg}")
         return QualityTestResult(
             test_name=test_name,
             test_file=key,
             severity=severity,
             status="error",
             row_count=0,
-            message=str(e),
+            message=msg,
             duration_ms=elapsed_ms,
             description=description,
             compiled_sql=compiled,
