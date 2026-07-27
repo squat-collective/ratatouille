@@ -1,15 +1,15 @@
 [
   {
     "name": "annotated-types",
-    "version": "0.7.0",
-    "license": "MIT License",
+    "version": "0.8.0",
+    "license": "MIT",
     "url": "https://github.com/annotated-types/annotated-types",
     "component": "runner",
     "scope": "runtime"
   },
   {
     "name": "boto3",
-    "version": "1.43.51",
+    "version": "1.43.56",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/boto3",
     "component": "runner",
@@ -17,7 +17,7 @@
   },
   {
     "name": "botocore",
-    "version": "1.43.51",
+    "version": "1.43.56",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/botocore",
     "component": "runner",
@@ -33,7 +33,7 @@
   },
   {
     "name": "certifi",
-    "version": "2026.6.17",
+    "version": "2026.7.22",
     "license": "Mozilla Public License 2.0 (MPL 2.0)",
     "url": "https://github.com/certifi/python-certifi",
     "component": "runner",
@@ -57,7 +57,7 @@
   },
   {
     "name": "duckdb",
-    "version": "1.5.4",
+    "version": "1.5.5",
     "license": "MIT License",
     "url": "https://github.com/duckdb/duckdb-python",
     "component": "runner",
@@ -73,7 +73,7 @@
   },
   {
     "name": "grpcio",
-    "version": "1.82.1",
+    "version": "1.83.0",
     "license": "Apache-2.0",
     "url": "https://grpc.io",
     "component": "runner",
@@ -233,7 +233,7 @@
   },
   {
     "name": "s3transfer",
-    "version": "0.19.1",
+    "version": "0.19.2",
     "license": "Apache Software License",
     "url": "https://github.com/boto/s3transfer",
     "component": "runner",
@@ -305,7 +305,7 @@
   },
   {
     "name": "grpcio-tools",
-    "version": "1.82.1",
+    "version": "1.83.0",
     "license": "Apache-2.0",
     "url": "https://grpc.io",
     "component": "runner",
@@ -377,15 +377,15 @@
   },
   {
     "name": "annotated-types",
-    "version": "0.7.0",
-    "license": "MIT License",
+    "version": "0.8.0",
+    "license": "MIT",
     "url": "https://github.com/annotated-types/annotated-types",
     "component": "query",
     "scope": "runtime"
   },
   {
     "name": "boto3",
-    "version": "1.43.51",
+    "version": "1.43.56",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/boto3",
     "component": "query",
@@ -393,7 +393,7 @@
   },
   {
     "name": "botocore",
-    "version": "1.43.51",
+    "version": "1.43.56",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/botocore",
     "component": "query",
@@ -409,7 +409,7 @@
   },
   {
     "name": "certifi",
-    "version": "2026.6.17",
+    "version": "2026.7.22",
     "license": "Mozilla Public License 2.0 (MPL 2.0)",
     "url": "https://github.com/certifi/python-certifi",
     "component": "query",
@@ -441,7 +441,7 @@
   },
   {
     "name": "duckdb",
-    "version": "1.5.4",
+    "version": "1.5.5",
     "license": "MIT License",
     "url": "https://github.com/duckdb/duckdb-python",
     "component": "query",
@@ -457,7 +457,7 @@
   },
   {
     "name": "grpcio",
-    "version": "1.82.1",
+    "version": "1.83.0",
     "license": "Apache-2.0",
     "url": "https://grpc.io",
     "component": "query",
@@ -465,7 +465,7 @@
   },
   {
     "name": "grpcio-tools",
-    "version": "1.82.1",
+    "version": "1.83.0",
     "license": "Apache-2.0",
     "url": "https://grpc.io",
     "component": "query",
@@ -689,7 +689,7 @@
   },
   {
     "name": "s3transfer",
-    "version": "0.19.1",
+    "version": "0.19.2",
     "license": "Apache Software License",
     "url": "https://github.com/boto/s3transfer",
     "component": "query",
