@@ -9,7 +9,7 @@
   },
   {
     "name": "boto3",
-    "version": "1.43.56",
+    "version": "1.43.62",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/boto3",
     "component": "runner",
@@ -17,7 +17,7 @@
   },
   {
     "name": "botocore",
-    "version": "1.43.56",
+    "version": "1.43.62",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/botocore",
     "component": "runner",
@@ -65,7 +65,7 @@
   },
   {
     "name": "fsspec",
-    "version": "2026.6.0",
+    "version": "2026.7.0",
     "license": "BSD-3-Clause",
     "url": "https://github.com/fsspec/filesystem_spec",
     "component": "runner",
@@ -297,7 +297,7 @@
   },
   {
     "name": "coverage",
-    "version": "7.15.2",
+    "version": "7.15.3",
     "license": "Apache-2.0",
     "url": "https://github.com/coveragepy/coveragepy",
     "component": "runner",
@@ -385,7 +385,7 @@
   },
   {
     "name": "boto3",
-    "version": "1.43.56",
+    "version": "1.43.62",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/boto3",
     "component": "query",
@@ -393,7 +393,7 @@
   },
   {
     "name": "botocore",
-    "version": "1.43.56",
+    "version": "1.43.62",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/botocore",
     "component": "query",
@@ -433,7 +433,7 @@
   },
   {
     "name": "coverage",
-    "version": "7.15.2",
+    "version": "7.15.3",
     "license": "Apache-2.0",
     "url": "https://github.com/coveragepy/coveragepy",
     "component": "query",
@@ -449,7 +449,7 @@
   },
   {
     "name": "fsspec",
-    "version": "2026.6.0",
+    "version": "2026.7.0",
     "license": "BSD-3-Clause",
     "url": "https://github.com/fsspec/filesystem_spec",
     "component": "query",

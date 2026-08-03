@@ -7,15 +7,15 @@
 | Package | Version | License | URL |
 |---------|---------|---------|-----|
 | `annotated-types` | 0.8.0 | MIT | https://github.com/annotated-types/annotated-types |
-| `boto3` | 1.43.56 | Apache-2.0 | https://github.com/boto/boto3 |
-| `botocore` | 1.43.56 | Apache-2.0 | https://github.com/boto/botocore |
+| `boto3` | 1.43.62 | Apache-2.0 | https://github.com/boto/boto3 |
+| `botocore` | 1.43.62 | Apache-2.0 | https://github.com/boto/botocore |
 | `cachetools` | 6.2.6 | MIT | https://github.com/tkem/cachetools/ |
 | `certifi` | 2026.7.22 | Mozilla Public License 2.0 (MPL 2.0) | https://github.com/certifi/python-certifi |
 | `charset-normalizer` | 3.4.9 | MIT | https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md |
 | `click` | 8.4.2 | BSD-3-Clause | https://github.com/pallets/click/ |
-| `coverage` | 7.15.2 | Apache-2.0 | https://github.com/coveragepy/coveragepy |
+| `coverage` | 7.15.3 | Apache-2.0 | https://github.com/coveragepy/coveragepy |
 | `duckdb` | 1.5.5 | MIT License | https://github.com/duckdb/duckdb-python |
-| `fsspec` | 2026.6.0 | BSD-3-Clause | https://github.com/fsspec/filesystem_spec |
+| `fsspec` | 2026.7.0 | BSD-3-Clause | https://github.com/fsspec/filesystem_spec |
 | `grpcio` | 1.83.0 | Apache-2.0 | https://grpc.io |
 | `grpcio-tools` | 1.83.0 | Apache-2.0 | https://grpc.io |
 | `idna` | 3.18 | BSD-3-Clause | https://github.com/kjd/idna |
