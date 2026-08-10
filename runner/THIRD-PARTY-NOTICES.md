@@ -7,8 +7,8 @@
 | Package | Version | License | URL |
 |---------|---------|---------|-----|
 | `annotated-types` | 0.8.0 | MIT | https://github.com/annotated-types/annotated-types |
-| `boto3` | 1.43.62 | Apache-2.0 | https://github.com/boto/boto3 |
-| `botocore` | 1.43.62 | Apache-2.0 | https://github.com/boto/botocore |
+| `boto3` | 1.43.67 | Apache-2.0 | https://github.com/boto/boto3 |
+| `botocore` | 1.43.67 | Apache-2.0 | https://github.com/boto/botocore |
 | `cachetools` | 6.2.6 | MIT | https://github.com/tkem/cachetools/ |
 | `certifi` | 2026.7.22 | Mozilla Public License 2.0 (MPL 2.0) | https://github.com/certifi/python-certifi |
 | `charset-normalizer` | 3.4.9 | MIT | https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md |
@@ -48,11 +48,11 @@
 
 | Package | Version | License | URL |
 |---------|---------|---------|-----|
-| `coverage` | 7.15.3 | Apache-2.0 | https://github.com/coveragepy/coveragepy |
+| `coverage` | 7.15.4 | Apache-2.0 | https://github.com/coveragepy/coveragepy |
 | `grpcio-tools` | 1.83.0 | Apache-2.0 | https://grpc.io |
 | `iniconfig` | 2.3.0 | MIT | https://github.com/pytest-dev/iniconfig |
 | `nodeenv` | 1.10.0 | BSD License | https://github.com/ekalinin/nodeenv |
-| `packaging` | 26.2 | Apache-2.0 OR BSD-2-Clause | https://github.com/pypa/packaging |
+| `packaging` | 26.3 | Apache-2.0 OR BSD-2-Clause | https://github.com/pypa/packaging |
 | `pluggy` | 1.6.0 | MIT License | UNKNOWN |
 | `pyright` | 1.1.411 | MIT | https://github.com/RobertCraigie/pyright-python |
 | `pytest` | 9.1.1 | MIT | https://docs.pytest.org/en/latest/ |

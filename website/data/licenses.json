@@ -9,7 +9,7 @@
   },
   {
     "name": "boto3",
-    "version": "1.43.62",
+    "version": "1.43.67",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/boto3",
     "component": "runner",
@@ -17,7 +17,7 @@
   },
   {
     "name": "botocore",
-    "version": "1.43.62",
+    "version": "1.43.67",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/botocore",
     "component": "runner",
@@ -297,7 +297,7 @@
   },
   {
     "name": "coverage",
-    "version": "7.15.3",
+    "version": "7.15.4",
     "license": "Apache-2.0",
     "url": "https://github.com/coveragepy/coveragepy",
     "component": "runner",
@@ -329,7 +329,7 @@
   },
   {
     "name": "packaging",
-    "version": "26.2",
+    "version": "26.3",
     "license": "Apache-2.0 OR BSD-2-Clause",
     "url": "https://github.com/pypa/packaging",
     "component": "runner",
@@ -385,7 +385,7 @@
   },
   {
     "name": "boto3",
-    "version": "1.43.62",
+    "version": "1.43.67",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/boto3",
     "component": "query",
@@ -393,7 +393,7 @@
   },
   {
     "name": "botocore",
-    "version": "1.43.62",
+    "version": "1.43.67",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/botocore",
     "component": "query",
@@ -433,7 +433,7 @@
   },
   {
     "name": "coverage",
-    "version": "7.15.3",
+    "version": "7.15.4",
     "license": "Apache-2.0",
     "url": "https://github.com/coveragepy/coveragepy",
     "component": "query",
@@ -545,7 +545,7 @@
   },
   {
     "name": "packaging",
-    "version": "26.2",
+    "version": "26.3",
     "license": "Apache-2.0 OR BSD-2-Clause",
     "url": "https://github.com/pypa/packaging",
     "component": "query",
