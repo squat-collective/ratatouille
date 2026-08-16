@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Badge } from "@/components/ui/badge";
 import { Database, Table2, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { serverApi } from "@/lib/server-api";
+import { getServerApi } from "@/lib/server-auth";
 import { formatBytes } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -29,7 +29,8 @@ export default async function ExplorerPage() {
     size_bytes: number;
   }> = [];
   try {
-    const data = await serverApi.tables.list();
+    const api = await getServerApi();
+    const data = await api.tables.list();
     tableList = data?.tables ?? [];
   } catch {
     // API unreachable

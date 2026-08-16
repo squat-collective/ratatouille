@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Shield, CheckCircle, XCircle, AlertTriangle, Trash2, KeyRound, User } from "lucide-react";
 import Link from "next/link";
-import { serverApi, type FeaturesResponse } from "@/lib/server-api";
+import { type FeaturesResponse } from "@/lib/server-api";
+import { getServerApi } from "@/lib/server-auth";
 import { auth, authEnabled } from "@/lib/auth/server";
 
 export const metadata: Metadata = {
@@ -12,7 +13,8 @@ export const metadata: Metadata = {
 export default async function SettingsPage() {
   let features: FeaturesResponse | null = null;
   try {
-    features = await serverApi.features();
+    const api = await getServerApi();
+    features = await api.features();
   } catch {
     // API unreachable — show defaults
   }
@@ -127,6 +129,23 @@ export default async function SettingsPage() {
           </p>
         </div>
       </Link>
+
+      {/* Permissions — link card (conditional on permission plugin) */}
+      {plugins.permission?.enabled && (
+        <Link href="/settings/permissions" className="block">
+          <div className="brutal-card p-4 space-y-2 hover:border-primary/50 transition-colors cursor-pointer">
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-primary" />
+              <h2 className="text-xs font-bold tracking-wider text-muted-foreground">
+                Permissions
+              </h2>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Manage grants, groups, and verb definitions.
+            </p>
+          </div>
+        </Link>
+      )}
 
       {/* Plugin status grid */}
       <div className="brutal-card p-4 space-y-3">

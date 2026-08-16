@@ -14,6 +14,8 @@ interface AuthSession {
   accessToken?: string;
   userId?: string;
   expires?: string;
+  /** Set by pro auth when server-side token refresh fails. */
+  error?: string;
 }
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
@@ -25,4 +27,10 @@ export function useAuthSession(): {
   status: "authenticated" | "loading" | "unauthenticated";
 } {
   return { data: null, status: "unauthenticated" };
+}
+
+/** Noop in community edition — pro overlay re-exports from next-auth/react. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function signOut(_options?: { callbackUrl?: string }): Promise<void> {
+  // Community edition has no auth — nothing to sign out of.
 }

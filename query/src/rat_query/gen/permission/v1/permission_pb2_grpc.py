@@ -80,6 +80,11 @@ class PermissionServiceStub(object):
                 request_serializer=permission_dot_v1_dot_permission__pb2.CreateGroupRequest.SerializeToString,
                 response_deserializer=permission_dot_v1_dot_permission__pb2.CreateGroupResponse.FromString,
                 _registered_method=True)
+        self.ListGroups = channel.unary_unary(
+                '/ratatouille.permission.v1.PermissionService/ListGroups',
+                request_serializer=permission_dot_v1_dot_permission__pb2.ListGroupsRequest.SerializeToString,
+                response_deserializer=permission_dot_v1_dot_permission__pb2.ListGroupsResponse.FromString,
+                _registered_method=True)
         self.DeleteGroup = channel.unary_unary(
                 '/ratatouille.permission.v1.PermissionService/DeleteGroup',
                 request_serializer=permission_dot_v1_dot_permission__pb2.DeleteGroupRequest.SerializeToString,
@@ -217,6 +222,13 @@ class PermissionServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListGroups(self, request, context):
+        """List all engine-managed groups.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def DeleteGroup(self, request, context):
         """Delete an engine-managed group and all its memberships.
         """
@@ -318,6 +330,11 @@ def add_PermissionServiceServicer_to_server(servicer, server):
                     servicer.CreateGroup,
                     request_deserializer=permission_dot_v1_dot_permission__pb2.CreateGroupRequest.FromString,
                     response_serializer=permission_dot_v1_dot_permission__pb2.CreateGroupResponse.SerializeToString,
+            ),
+            'ListGroups': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListGroups,
+                    request_deserializer=permission_dot_v1_dot_permission__pb2.ListGroupsRequest.FromString,
+                    response_serializer=permission_dot_v1_dot_permission__pb2.ListGroupsResponse.SerializeToString,
             ),
             'DeleteGroup': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteGroup,
@@ -658,6 +675,33 @@ class PermissionService(object):
             '/ratatouille.permission.v1.PermissionService/CreateGroup',
             permission_dot_v1_dot_permission__pb2.CreateGroupRequest.SerializeToString,
             permission_dot_v1_dot_permission__pb2.CreateGroupResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListGroups(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/ratatouille.permission.v1.PermissionService/ListGroups',
+            permission_dot_v1_dot_permission__pb2.ListGroupsRequest.SerializeToString,
+            permission_dot_v1_dot_permission__pb2.ListGroupsResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -3,7 +3,7 @@
 import useSWR, { useSWRConfig } from "swr";
 import { useApiClient } from "@/providers/api-provider";
 import { useCallback, useMemo, useState } from "react";
-import type { UpdatePipelineRequest, CreateTriggerRequest, UpdateTriggerRequest, CreateQualityTestRequest, PreviewResponse, UpdateNamespaceRequest, UpdateLandingZoneRequest, UpdateTableMetadataRequest, PipelineConfig } from "@squat-collective/rat-client";
+import type { UpdatePipelineRequest, CreateTriggerRequest, UpdateTriggerRequest, CreateQualityTestRequest, PreviewResponse, UpdateNamespaceRequest, UpdateLandingZoneRequest, UpdateTableMetadataRequest, PipelineConfig, CreateGrantRequest, PrincipalType } from "@squat-collective/rat-client";
 import yaml from "js-yaml";
 import { KEYS } from "@/lib/cache-keys";
 
@@ -598,4 +598,222 @@ export function useTriggerReaper() {
   }, [api, mutate]);
 
   return { trigger, running };
+}
+
+/** Permissions */
+export function useGrants(filters?: { resource?: string; principal_type?: PrincipalType; principal_id?: string }) {
+  const api = useApiClient();
+  return useSWR(
+    KEYS.grants(filters),
+    () => api.permissions.listGrants(filters),
+  );
+}
+
+export function useCreateGrant() {
+  const api = useApiClient();
+  const { mutate } = useSWRConfig();
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const createGrant = useCallback(
+    async (req: CreateGrantRequest) => {
+      setCreating(true);
+      setError(null);
+      try {
+        const result = await api.permissions.createGrant(req);
+        await mutate(KEYS.match.grants);
+        return result;
+      } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e));
+        setError(err);
+        throw err;
+      } finally {
+        setCreating(false);
+      }
+    },
+    [api, mutate],
+  );
+
+  return { createGrant, creating, error };
+}
+
+export function useRevokeGrant() {
+  const api = useApiClient();
+  const { mutate } = useSWRConfig();
+  const [revoking, setRevoking] = useState(false);
+
+  const revokeGrant = useCallback(
+    async (grantId: string) => {
+      setRevoking(true);
+      try {
+        await api.permissions.revokeGrant(grantId);
+        await mutate(KEYS.match.grants);
+      } finally {
+        setRevoking(false);
+      }
+    },
+    [api, mutate],
+  );
+
+  return { revokeGrant, revoking };
+}
+
+export function useGroups() {
+  const api = useApiClient();
+  return useSWR(KEYS.groups(), () => api.permissions.listGroups());
+}
+
+export function useCreateGroup() {
+  const api = useApiClient();
+  const { mutate } = useSWRConfig();
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const createGroup = useCallback(
+    async (name: string, description?: string) => {
+      setCreating(true);
+      setError(null);
+      try {
+        const result = await api.permissions.createGroup(name, description);
+        await mutate(KEYS.match.groups);
+        return result;
+      } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e));
+        setError(err);
+        throw err;
+      } finally {
+        setCreating(false);
+      }
+    },
+    [api, mutate],
+  );
+
+  return { createGroup, creating, error };
+}
+
+export function useDeleteGroup() {
+  const api = useApiClient();
+  const { mutate } = useSWRConfig();
+  const [deleting, setDeleting] = useState(false);
+
+  const deleteGroup = useCallback(
+    async (groupId: string) => {
+      setDeleting(true);
+      try {
+        await api.permissions.deleteGroup(groupId);
+        await mutate(KEYS.match.groups);
+      } finally {
+        setDeleting(false);
+      }
+    },
+    [api, mutate],
+  );
+
+  return { deleteGroup, deleting };
+}
+
+export function useGroupMembers(groupId: string) {
+  const api = useApiClient();
+  return useSWR(
+    groupId ? KEYS.groupMembers(groupId) : null,
+    () => api.permissions.listGroupMembers(groupId),
+  );
+}
+
+export function useAddGroupMember(groupId: string) {
+  const api = useApiClient();
+  const { mutate } = useSWRConfig();
+  const [adding, setAdding] = useState(false);
+
+  const addMember = useCallback(
+    async (memberType: PrincipalType, memberId: string) => {
+      setAdding(true);
+      try {
+        await api.permissions.addGroupMember(groupId, memberType, memberId);
+        await mutate(KEYS.groupMembers(groupId));
+      } finally {
+        setAdding(false);
+      }
+    },
+    [api, groupId, mutate],
+  );
+
+  return { addMember, adding };
+}
+
+export function useRemoveGroupMember(groupId: string) {
+  const api = useApiClient();
+  const { mutate } = useSWRConfig();
+  const [removing, setRemoving] = useState(false);
+
+  const removeMember = useCallback(
+    async (memberType: PrincipalType, memberId: string) => {
+      setRemoving(true);
+      try {
+        await api.permissions.removeGroupMember(groupId, memberType, memberId);
+        await mutate(KEYS.groupMembers(groupId));
+      } finally {
+        setRemoving(false);
+      }
+    },
+    [api, groupId, mutate],
+  );
+
+  return { removeMember, removing };
+}
+
+export function useVerbs() {
+  const api = useApiClient();
+  return useSWR(KEYS.verbs(), () => api.permissions.listVerbs());
+}
+
+export function useResourceAccess(resource: string) {
+  const api = useApiClient();
+  return useSWR(
+    resource ? KEYS.resourceAccess(resource) : null,
+    () => api.permissions.listResourceAccess(resource),
+  );
+}
+
+export function usePrincipalAccess(userId: string) {
+  const api = useApiClient();
+  return useSWR(
+    userId ? KEYS.principalAccess(userId) : null,
+    () => api.permissions.listPrincipalAccess(userId),
+  );
+}
+
+/** Identity */
+export function useIdentityCapabilities() {
+  const api = useApiClient();
+  return useSWR(KEYS.identityCapabilities(), () => api.identity.getCapabilities());
+}
+
+export function useIdentityUsers(filters?: { search?: string; limit?: number; offset?: number }) {
+  const api = useApiClient();
+  return useSWR(
+    KEYS.identityUsers(filters),
+    () => api.identity.listUsers(filters),
+  );
+}
+
+export function useIdentityUser(userId: string) {
+  const api = useApiClient();
+  return useSWR(
+    userId ? KEYS.identityUser(userId) : null,
+    () => api.identity.getUser(userId),
+  );
+}
+
+export function useIdentityGroups() {
+  const api = useApiClient();
+  return useSWR(KEYS.identityGroups(), () => api.identity.listGroups());
+}
+
+export function useSearchIdentityUsers(query: string) {
+  const api = useApiClient();
+  return useSWR(
+    query ? KEYS.identitySearch(query) : null,
+    () => api.identity.searchUsers(query),
+  );
 }

@@ -114,7 +114,19 @@ export class Transport {
       if (contentType.includes("application/json")) {
         try {
           const body: Record<string, unknown> = await (response.json() as Promise<Record<string, unknown>>);
-          const message = (body.error as string | undefined) ?? response.statusText;
+          // ratd returns {"error": {"code": "...", "type": "...", "message": "..."}}
+          // but some endpoints may return {"error": "plain string"}
+          let message: string;
+          if (typeof body.error === "string") {
+            message = body.error;
+          } else if (body.error && typeof body.error === "object") {
+            const detail = body.error as Record<string, unknown>;
+            message = (typeof detail.message === "string" ? detail.message : null)
+              ?? (typeof detail.code === "string" ? detail.code : null)
+              ?? response.statusText;
+          } else {
+            message = (typeof body.message === "string" ? body.message : null) ?? response.statusText;
+          }
           throw errorFromStatus(response.status, message, body.validation);
         } catch (e) {
           if (e instanceof RatError) throw e;

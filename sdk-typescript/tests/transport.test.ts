@@ -127,6 +127,44 @@ describe("Transport", () => {
     vi.unstubAllGlobals();
   });
 
+  it("extracts message from structured error envelope", async () => {
+    // ratd returns {"error": {"code": "INTERNAL", "type": "INTERNAL", "message": "failed to list grants"}}
+    const fetch = mockFetch(
+      500,
+      { error: { code: "INTERNAL", type: "INTERNAL", message: "failed to list grants" } },
+      { "content-type": "application/json" },
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    const transport = new Transport({ apiUrl: "http://localhost:8080", maxRetries: 1 });
+
+    await expect(transport.request("GET", "/api/v1/permissions/grants")).rejects.toThrow(
+      "failed to list grants",
+    );
+    await expect(transport.request("GET", "/api/v1/permissions/grants")).rejects.toThrow(
+      ServerError,
+    );
+
+    vi.unstubAllGlobals();
+  });
+
+  it("handles plain string error field in JSON", async () => {
+    const fetch = mockFetch(
+      401,
+      { error: "missing or invalid Authorization header" },
+      { "content-type": "application/json" },
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    const transport = new Transport({ apiUrl: "http://localhost:8080", maxRetries: 1 });
+
+    await expect(transport.request("GET", "/api/v1/test")).rejects.toThrow(
+      "missing or invalid Authorization header",
+    );
+
+    vi.unstubAllGlobals();
+  });
+
   it("throws ConnectionError after all retries exhausted", async () => {
     const fetch = vi.fn().mockRejectedValue(new Error("network error"));
     vi.stubGlobal("fetch", fetch);

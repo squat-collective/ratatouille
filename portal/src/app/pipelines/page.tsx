@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { serverApi, type PipelineListResponse } from "@/lib/server-api";
+import { type PipelineListResponse } from "@/lib/server-api";
+import { getServerApi } from "@/lib/server-auth";
 import { PipelinesClient } from "./pipelines-client";
 
 export const metadata: Metadata = {
@@ -10,7 +11,8 @@ export const metadata: Metadata = {
 export default async function PipelinesPage() {
   let data: PipelineListResponse = { pipelines: [], total: 0 };
   try {
-    data = await serverApi.pipelines.list();
+    const api = await getServerApi();
+    data = await api.pipelines.list();
   } catch {
     // API unreachable
   }

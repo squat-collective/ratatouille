@@ -384,11 +384,12 @@ func NewRouter(srv *Server) chi.Router {
 	r.Use(RequestLogger)
 	r.Use(middleware.Recoverer)
 
-	// Health & metrics (unauthenticated, outside /api/v1)
+	// Health, metrics & features (unauthenticated, outside /api/v1 auth)
 	r.Get("/health", srv.HandleHealth)
 	r.Get("/health/live", srv.HandleHealthLive)
 	r.Get("/health/ready", srv.HandleHealthReady)
 	r.Get("/metrics", srv.HandleMetrics)
+	r.Get("/api/v1/features", srv.HandleFeatures)
 
 	// Webhooks (token-authenticated, no JWT required).
 	// Rate-limited separately from the main API because webhooks are externally
@@ -424,7 +425,6 @@ func NewRouter(srv *Server) chi.Router {
 		if srv.Audit != nil {
 			r.Use(AuditMiddleware(srv.Audit))
 		}
-		r.Get("/features", srv.HandleFeatures)
 		r.Get("/me", srv.HandleMe)
 
 		// ValidatePathParams needs URL params, which are only available after
@@ -454,6 +454,12 @@ func NewRouter(srv *Server) chi.Router {
 		}
 		if srv.Versions != nil {
 			MountVersionRoutes(vr, srv)
+		}
+		if pp := srv.permissionProvider(); pp != nil && pp.PermissionEnabled() {
+			MountPermissionRoutes(vr, srv)
+		}
+		if ip := srv.identityProvider(); ip != nil && ip.IdentityEnabled() {
+			MountIdentityRoutes(vr, srv)
 		}
 	})
 

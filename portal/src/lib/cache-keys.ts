@@ -88,6 +88,27 @@ export const KEYS = {
   retentionConfig: () => "retention-config" as const,
   reaperStatus: () => "reaper-status" as const,
 
+  // --- Permissions ---
+  grants: (filters?: { resource?: string; principal_type?: string; principal_id?: string }) =>
+    filters
+      ? (`perm-grants-${JSON.stringify(filters)}` as const)
+      : ("perm-grants" as const),
+  groups: () => "perm-groups" as const,
+  groupMembers: (groupId: string) => `perm-group-members-${groupId}` as const,
+  verbs: () => "perm-verbs" as const,
+  resourceAccess: (resource: string) => `perm-resource-access-${resource}` as const,
+  principalAccess: (userId: string) => `perm-principal-access-${userId}` as const,
+
+  // --- Identity ---
+  identityCapabilities: () => "identity-capabilities" as const,
+  identityUsers: (filters?: { search?: string; limit?: number; offset?: number }) =>
+    filters
+      ? (`identity-users-${JSON.stringify(filters)}` as const)
+      : ("identity-users" as const),
+  identityUser: (userId: string) => `identity-user-${userId}` as const,
+  identityGroups: () => "identity-groups" as const,
+  identitySearch: (query: string) => `identity-search-${query}` as const,
+
   // --- Matcher functions for broad cache invalidation ---
   // Pass these to SWR's mutate() to revalidate all keys matching a prefix.
   match: {
@@ -121,5 +142,17 @@ export const KEYS = {
     /** Matches landing-samples keys for a specific zone. */
     landingSamples: (ns: string, name: string) => (key: unknown): boolean =>
       typeof key === "string" && key.startsWith(`landing-samples-${ns}-${name}`),
+    /** Matches all permission-related keys. */
+    permissions: (key: unknown): boolean =>
+      typeof key === "string" && key.startsWith("perm-"),
+    /** Matches all grant-related keys. */
+    grants: (key: unknown): boolean =>
+      typeof key === "string" && key.startsWith("perm-grants"),
+    /** Matches all group-related keys. */
+    groups: (key: unknown): boolean =>
+      typeof key === "string" && (key.startsWith("perm-groups") || key.startsWith("perm-group-members")),
+    /** Matches all identity-related keys. */
+    identity: (key: unknown): boolean =>
+      typeof key === "string" && key.startsWith("identity-"),
   },
 } as const;

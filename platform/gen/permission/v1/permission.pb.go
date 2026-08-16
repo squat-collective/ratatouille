@@ -1617,6 +1617,88 @@ func (x *CreateGroupResponse) GetGroup() *GroupInfo {
 	return nil
 }
 
+// ListGroupsRequest requests all engine-managed groups.
+type ListGroupsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListGroupsRequest) Reset() {
+	*x = ListGroupsRequest{}
+	mi := &file_permission_v1_permission_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGroupsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGroupsRequest) ProtoMessage() {}
+
+func (x *ListGroupsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_permission_v1_permission_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGroupsRequest.ProtoReflect.Descriptor instead.
+func (*ListGroupsRequest) Descriptor() ([]byte, []int) {
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{28}
+}
+
+// ListGroupsResponse returns all engine-managed groups.
+type ListGroupsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Groups        []*GroupInfo           `protobuf:"bytes,1,rep,name=groups,proto3" json:"groups,omitempty"` // all engine-managed groups
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListGroupsResponse) Reset() {
+	*x = ListGroupsResponse{}
+	mi := &file_permission_v1_permission_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGroupsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGroupsResponse) ProtoMessage() {}
+
+func (x *ListGroupsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_permission_v1_permission_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGroupsResponse.ProtoReflect.Descriptor instead.
+func (*ListGroupsResponse) Descriptor() ([]byte, []int) {
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *ListGroupsResponse) GetGroups() []*GroupInfo {
+	if x != nil {
+		return x.Groups
+	}
+	return nil
+}
+
 // DeleteGroupRequest deletes a group and all its memberships and grants.
 type DeleteGroupRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1627,7 +1709,7 @@ type DeleteGroupRequest struct {
 
 func (x *DeleteGroupRequest) Reset() {
 	*x = DeleteGroupRequest{}
-	mi := &file_permission_v1_permission_proto_msgTypes[28]
+	mi := &file_permission_v1_permission_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1639,7 +1721,7 @@ func (x *DeleteGroupRequest) String() string {
 func (*DeleteGroupRequest) ProtoMessage() {}
 
 func (x *DeleteGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_permission_v1_permission_proto_msgTypes[28]
+	mi := &file_permission_v1_permission_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1652,7 +1734,7 @@ func (x *DeleteGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteGroupRequest.ProtoReflect.Descriptor instead.
 func (*DeleteGroupRequest) Descriptor() ([]byte, []int) {
-	return file_permission_v1_permission_proto_rawDescGZIP(), []int{28}
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *DeleteGroupRequest) GetGroupId() string {
@@ -1672,7 +1754,7 @@ type DeleteGroupResponse struct {
 
 func (x *DeleteGroupResponse) Reset() {
 	*x = DeleteGroupResponse{}
-	mi := &file_permission_v1_permission_proto_msgTypes[29]
+	mi := &file_permission_v1_permission_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1684,7 +1766,7 @@ func (x *DeleteGroupResponse) String() string {
 func (*DeleteGroupResponse) ProtoMessage() {}
 
 func (x *DeleteGroupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_permission_v1_permission_proto_msgTypes[29]
+	mi := &file_permission_v1_permission_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1697,7 +1779,7 @@ func (x *DeleteGroupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteGroupResponse.ProtoReflect.Descriptor instead.
 func (*DeleteGroupResponse) Descriptor() ([]byte, []int) {
-	return file_permission_v1_permission_proto_rawDescGZIP(), []int{29}
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *DeleteGroupResponse) GetDeleted() bool {
@@ -1719,7 +1801,7 @@ type AddGroupMemberRequest struct {
 
 func (x *AddGroupMemberRequest) Reset() {
 	*x = AddGroupMemberRequest{}
-	mi := &file_permission_v1_permission_proto_msgTypes[30]
+	mi := &file_permission_v1_permission_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1731,7 +1813,7 @@ func (x *AddGroupMemberRequest) String() string {
 func (*AddGroupMemberRequest) ProtoMessage() {}
 
 func (x *AddGroupMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_permission_v1_permission_proto_msgTypes[30]
+	mi := &file_permission_v1_permission_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1744,7 +1826,7 @@ func (x *AddGroupMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddGroupMemberRequest.ProtoReflect.Descriptor instead.
 func (*AddGroupMemberRequest) Descriptor() ([]byte, []int) {
-	return file_permission_v1_permission_proto_rawDescGZIP(), []int{30}
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *AddGroupMemberRequest) GetGroupId() string {
@@ -1777,7 +1859,7 @@ type AddGroupMemberResponse struct {
 
 func (x *AddGroupMemberResponse) Reset() {
 	*x = AddGroupMemberResponse{}
-	mi := &file_permission_v1_permission_proto_msgTypes[31]
+	mi := &file_permission_v1_permission_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1789,7 +1871,7 @@ func (x *AddGroupMemberResponse) String() string {
 func (*AddGroupMemberResponse) ProtoMessage() {}
 
 func (x *AddGroupMemberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_permission_v1_permission_proto_msgTypes[31]
+	mi := &file_permission_v1_permission_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1802,7 +1884,7 @@ func (x *AddGroupMemberResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddGroupMemberResponse.ProtoReflect.Descriptor instead.
 func (*AddGroupMemberResponse) Descriptor() ([]byte, []int) {
-	return file_permission_v1_permission_proto_rawDescGZIP(), []int{31}
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{33}
 }
 
 // RemoveGroupMemberRequest removes a member from a group.
@@ -1817,7 +1899,7 @@ type RemoveGroupMemberRequest struct {
 
 func (x *RemoveGroupMemberRequest) Reset() {
 	*x = RemoveGroupMemberRequest{}
-	mi := &file_permission_v1_permission_proto_msgTypes[32]
+	mi := &file_permission_v1_permission_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1829,7 +1911,7 @@ func (x *RemoveGroupMemberRequest) String() string {
 func (*RemoveGroupMemberRequest) ProtoMessage() {}
 
 func (x *RemoveGroupMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_permission_v1_permission_proto_msgTypes[32]
+	mi := &file_permission_v1_permission_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1842,7 +1924,7 @@ func (x *RemoveGroupMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveGroupMemberRequest.ProtoReflect.Descriptor instead.
 func (*RemoveGroupMemberRequest) Descriptor() ([]byte, []int) {
-	return file_permission_v1_permission_proto_rawDescGZIP(), []int{32}
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *RemoveGroupMemberRequest) GetGroupId() string {
@@ -1876,7 +1958,7 @@ type RemoveGroupMemberResponse struct {
 
 func (x *RemoveGroupMemberResponse) Reset() {
 	*x = RemoveGroupMemberResponse{}
-	mi := &file_permission_v1_permission_proto_msgTypes[33]
+	mi := &file_permission_v1_permission_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1888,7 +1970,7 @@ func (x *RemoveGroupMemberResponse) String() string {
 func (*RemoveGroupMemberResponse) ProtoMessage() {}
 
 func (x *RemoveGroupMemberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_permission_v1_permission_proto_msgTypes[33]
+	mi := &file_permission_v1_permission_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1901,7 +1983,7 @@ func (x *RemoveGroupMemberResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveGroupMemberResponse.ProtoReflect.Descriptor instead.
 func (*RemoveGroupMemberResponse) Descriptor() ([]byte, []int) {
-	return file_permission_v1_permission_proto_rawDescGZIP(), []int{33}
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *RemoveGroupMemberResponse) GetRemoved() bool {
@@ -1921,7 +2003,7 @@ type ListGroupMembersRequest struct {
 
 func (x *ListGroupMembersRequest) Reset() {
 	*x = ListGroupMembersRequest{}
-	mi := &file_permission_v1_permission_proto_msgTypes[34]
+	mi := &file_permission_v1_permission_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1933,7 +2015,7 @@ func (x *ListGroupMembersRequest) String() string {
 func (*ListGroupMembersRequest) ProtoMessage() {}
 
 func (x *ListGroupMembersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_permission_v1_permission_proto_msgTypes[34]
+	mi := &file_permission_v1_permission_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1946,7 +2028,7 @@ func (x *ListGroupMembersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGroupMembersRequest.ProtoReflect.Descriptor instead.
 func (*ListGroupMembersRequest) Descriptor() ([]byte, []int) {
-	return file_permission_v1_permission_proto_rawDescGZIP(), []int{34}
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ListGroupMembersRequest) GetGroupId() string {
@@ -1966,7 +2048,7 @@ type ListGroupMembersResponse struct {
 
 func (x *ListGroupMembersResponse) Reset() {
 	*x = ListGroupMembersResponse{}
-	mi := &file_permission_v1_permission_proto_msgTypes[35]
+	mi := &file_permission_v1_permission_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1978,7 +2060,7 @@ func (x *ListGroupMembersResponse) String() string {
 func (*ListGroupMembersResponse) ProtoMessage() {}
 
 func (x *ListGroupMembersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_permission_v1_permission_proto_msgTypes[35]
+	mi := &file_permission_v1_permission_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1991,7 +2073,7 @@ func (x *ListGroupMembersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGroupMembersResponse.ProtoReflect.Descriptor instead.
 func (*ListGroupMembersResponse) Descriptor() ([]byte, []int) {
-	return file_permission_v1_permission_proto_rawDescGZIP(), []int{35}
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ListGroupMembersResponse) GetMembers() []*GroupMember {
@@ -2011,7 +2093,7 @@ type ListUserGroupsRequest struct {
 
 func (x *ListUserGroupsRequest) Reset() {
 	*x = ListUserGroupsRequest{}
-	mi := &file_permission_v1_permission_proto_msgTypes[36]
+	mi := &file_permission_v1_permission_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2023,7 +2105,7 @@ func (x *ListUserGroupsRequest) String() string {
 func (*ListUserGroupsRequest) ProtoMessage() {}
 
 func (x *ListUserGroupsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_permission_v1_permission_proto_msgTypes[36]
+	mi := &file_permission_v1_permission_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2036,7 +2118,7 @@ func (x *ListUserGroupsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUserGroupsRequest.ProtoReflect.Descriptor instead.
 func (*ListUserGroupsRequest) Descriptor() ([]byte, []int) {
-	return file_permission_v1_permission_proto_rawDescGZIP(), []int{36}
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ListUserGroupsRequest) GetUserId() string {
@@ -2056,7 +2138,7 @@ type ListUserGroupsResponse struct {
 
 func (x *ListUserGroupsResponse) Reset() {
 	*x = ListUserGroupsResponse{}
-	mi := &file_permission_v1_permission_proto_msgTypes[37]
+	mi := &file_permission_v1_permission_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2068,7 +2150,7 @@ func (x *ListUserGroupsResponse) String() string {
 func (*ListUserGroupsResponse) ProtoMessage() {}
 
 func (x *ListUserGroupsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_permission_v1_permission_proto_msgTypes[37]
+	mi := &file_permission_v1_permission_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2081,7 +2163,7 @@ func (x *ListUserGroupsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUserGroupsResponse.ProtoReflect.Descriptor instead.
 func (*ListUserGroupsResponse) Descriptor() ([]byte, []int) {
-	return file_permission_v1_permission_proto_rawDescGZIP(), []int{37}
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ListUserGroupsResponse) GetGroups() []*GroupInfo {
@@ -2102,7 +2184,7 @@ type SyncExternalGroupsRequest struct {
 
 func (x *SyncExternalGroupsRequest) Reset() {
 	*x = SyncExternalGroupsRequest{}
-	mi := &file_permission_v1_permission_proto_msgTypes[38]
+	mi := &file_permission_v1_permission_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2114,7 +2196,7 @@ func (x *SyncExternalGroupsRequest) String() string {
 func (*SyncExternalGroupsRequest) ProtoMessage() {}
 
 func (x *SyncExternalGroupsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_permission_v1_permission_proto_msgTypes[38]
+	mi := &file_permission_v1_permission_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2127,7 +2209,7 @@ func (x *SyncExternalGroupsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncExternalGroupsRequest.ProtoReflect.Descriptor instead.
 func (*SyncExternalGroupsRequest) Descriptor() ([]byte, []int) {
-	return file_permission_v1_permission_proto_rawDescGZIP(), []int{38}
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *SyncExternalGroupsRequest) GetProvider() string {
@@ -2155,7 +2237,7 @@ type ExternalGroupMapping struct {
 
 func (x *ExternalGroupMapping) Reset() {
 	*x = ExternalGroupMapping{}
-	mi := &file_permission_v1_permission_proto_msgTypes[39]
+	mi := &file_permission_v1_permission_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2167,7 +2249,7 @@ func (x *ExternalGroupMapping) String() string {
 func (*ExternalGroupMapping) ProtoMessage() {}
 
 func (x *ExternalGroupMapping) ProtoReflect() protoreflect.Message {
-	mi := &file_permission_v1_permission_proto_msgTypes[39]
+	mi := &file_permission_v1_permission_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2180,7 +2262,7 @@ func (x *ExternalGroupMapping) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExternalGroupMapping.ProtoReflect.Descriptor instead.
 func (*ExternalGroupMapping) Descriptor() ([]byte, []int) {
-	return file_permission_v1_permission_proto_rawDescGZIP(), []int{39}
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ExternalGroupMapping) GetExternalGroupId() string {
@@ -2207,7 +2289,7 @@ type SyncExternalGroupsResponse struct {
 
 func (x *SyncExternalGroupsResponse) Reset() {
 	*x = SyncExternalGroupsResponse{}
-	mi := &file_permission_v1_permission_proto_msgTypes[40]
+	mi := &file_permission_v1_permission_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2219,7 +2301,7 @@ func (x *SyncExternalGroupsResponse) String() string {
 func (*SyncExternalGroupsResponse) ProtoMessage() {}
 
 func (x *SyncExternalGroupsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_permission_v1_permission_proto_msgTypes[40]
+	mi := &file_permission_v1_permission_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2232,7 +2314,7 @@ func (x *SyncExternalGroupsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncExternalGroupsResponse.ProtoReflect.Descriptor instead.
 func (*SyncExternalGroupsResponse) Descriptor() ([]byte, []int) {
-	return file_permission_v1_permission_proto_rawDescGZIP(), []int{40}
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *SyncExternalGroupsResponse) GetSynced() int32 {
@@ -2346,7 +2428,10 @@ const file_permission_v1_permission_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\"Q\n" +
 	"\x13CreateGroupResponse\x12:\n" +
-	"\x05group\x18\x01 \x01(\v2$.ratatouille.permission.v1.GroupInfoR\x05group\"/\n" +
+	"\x05group\x18\x01 \x01(\v2$.ratatouille.permission.v1.GroupInfoR\x05group\"\x13\n" +
+	"\x11ListGroupsRequest\"R\n" +
+	"\x12ListGroupsResponse\x12<\n" +
+	"\x06groups\x18\x01 \x03(\v2$.ratatouille.permission.v1.GroupInfoR\x06groups\"/\n" +
 	"\x12DeleteGroupRequest\x12\x19\n" +
 	"\bgroup_id\x18\x01 \x01(\tR\agroupId\"/\n" +
 	"\x13DeleteGroupResponse\x12\x18\n" +
@@ -2384,7 +2469,7 @@ const file_permission_v1_permission_proto_rawDesc = "" +
 	"\x1aPRINCIPAL_TYPE_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13PRINCIPAL_TYPE_USER\x10\x01\x12\x18\n" +
 	"\x14PRINCIPAL_TYPE_GROUP\x10\x02\x12\x17\n" +
-	"\x13PRINCIPAL_TYPE_ROLE\x10\x032\xeb\x0f\n" +
+	"\x13PRINCIPAL_TYPE_ROLE\x10\x032\xd6\x10\n" +
 	"\x11PermissionService\x12o\n" +
 	"\fRegisterVerb\x12..ratatouille.permission.v1.RegisterVerbRequest\x1a/.ratatouille.permission.v1.RegisterVerbResponse\x12f\n" +
 	"\tListVerbs\x12+.ratatouille.permission.v1.ListVerbsRequest\x1a,.ratatouille.permission.v1.ListVerbsResponse\x12u\n" +
@@ -2397,7 +2482,9 @@ const file_permission_v1_permission_proto_rawDesc = "" +
 	"\x10BatchCheckAccess\x122.ratatouille.permission.v1.BatchCheckAccessRequest\x1a3.ratatouille.permission.v1.BatchCheckAccessResponse\x12\x81\x01\n" +
 	"\x12ListResourceAccess\x124.ratatouille.permission.v1.ListResourceAccessRequest\x1a5.ratatouille.permission.v1.ListResourceAccessResponse\x12\x84\x01\n" +
 	"\x13ListPrincipalAccess\x125.ratatouille.permission.v1.ListPrincipalAccessRequest\x1a6.ratatouille.permission.v1.ListPrincipalAccessResponse\x12l\n" +
-	"\vCreateGroup\x12-.ratatouille.permission.v1.CreateGroupRequest\x1a..ratatouille.permission.v1.CreateGroupResponse\x12l\n" +
+	"\vCreateGroup\x12-.ratatouille.permission.v1.CreateGroupRequest\x1a..ratatouille.permission.v1.CreateGroupResponse\x12i\n" +
+	"\n" +
+	"ListGroups\x12,.ratatouille.permission.v1.ListGroupsRequest\x1a-.ratatouille.permission.v1.ListGroupsResponse\x12l\n" +
 	"\vDeleteGroup\x12-.ratatouille.permission.v1.DeleteGroupRequest\x1a..ratatouille.permission.v1.DeleteGroupResponse\x12u\n" +
 	"\x0eAddGroupMember\x120.ratatouille.permission.v1.AddGroupMemberRequest\x1a1.ratatouille.permission.v1.AddGroupMemberResponse\x12~\n" +
 	"\x11RemoveGroupMember\x123.ratatouille.permission.v1.RemoveGroupMemberRequest\x1a4.ratatouille.permission.v1.RemoveGroupMemberResponse\x12{\n" +
@@ -2419,7 +2506,7 @@ func file_permission_v1_permission_proto_rawDescGZIP() []byte {
 }
 
 var file_permission_v1_permission_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_permission_v1_permission_proto_msgTypes = make([]protoimpl.MessageInfo, 41)
+var file_permission_v1_permission_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
 var file_permission_v1_permission_proto_goTypes = []any{
 	(PrincipalType)(0),                  // 0: ratatouille.permission.v1.PrincipalType
 	(*VerbDefinition)(nil),              // 1: ratatouille.permission.v1.VerbDefinition
@@ -2450,28 +2537,30 @@ var file_permission_v1_permission_proto_goTypes = []any{
 	(*ListPrincipalAccessResponse)(nil), // 26: ratatouille.permission.v1.ListPrincipalAccessResponse
 	(*CreateGroupRequest)(nil),          // 27: ratatouille.permission.v1.CreateGroupRequest
 	(*CreateGroupResponse)(nil),         // 28: ratatouille.permission.v1.CreateGroupResponse
-	(*DeleteGroupRequest)(nil),          // 29: ratatouille.permission.v1.DeleteGroupRequest
-	(*DeleteGroupResponse)(nil),         // 30: ratatouille.permission.v1.DeleteGroupResponse
-	(*AddGroupMemberRequest)(nil),       // 31: ratatouille.permission.v1.AddGroupMemberRequest
-	(*AddGroupMemberResponse)(nil),      // 32: ratatouille.permission.v1.AddGroupMemberResponse
-	(*RemoveGroupMemberRequest)(nil),    // 33: ratatouille.permission.v1.RemoveGroupMemberRequest
-	(*RemoveGroupMemberResponse)(nil),   // 34: ratatouille.permission.v1.RemoveGroupMemberResponse
-	(*ListGroupMembersRequest)(nil),     // 35: ratatouille.permission.v1.ListGroupMembersRequest
-	(*ListGroupMembersResponse)(nil),    // 36: ratatouille.permission.v1.ListGroupMembersResponse
-	(*ListUserGroupsRequest)(nil),       // 37: ratatouille.permission.v1.ListUserGroupsRequest
-	(*ListUserGroupsResponse)(nil),      // 38: ratatouille.permission.v1.ListUserGroupsResponse
-	(*SyncExternalGroupsRequest)(nil),   // 39: ratatouille.permission.v1.SyncExternalGroupsRequest
-	(*ExternalGroupMapping)(nil),        // 40: ratatouille.permission.v1.ExternalGroupMapping
-	(*SyncExternalGroupsResponse)(nil),  // 41: ratatouille.permission.v1.SyncExternalGroupsResponse
-	(*timestamppb.Timestamp)(nil),       // 42: google.protobuf.Timestamp
+	(*ListGroupsRequest)(nil),           // 29: ratatouille.permission.v1.ListGroupsRequest
+	(*ListGroupsResponse)(nil),          // 30: ratatouille.permission.v1.ListGroupsResponse
+	(*DeleteGroupRequest)(nil),          // 31: ratatouille.permission.v1.DeleteGroupRequest
+	(*DeleteGroupResponse)(nil),         // 32: ratatouille.permission.v1.DeleteGroupResponse
+	(*AddGroupMemberRequest)(nil),       // 33: ratatouille.permission.v1.AddGroupMemberRequest
+	(*AddGroupMemberResponse)(nil),      // 34: ratatouille.permission.v1.AddGroupMemberResponse
+	(*RemoveGroupMemberRequest)(nil),    // 35: ratatouille.permission.v1.RemoveGroupMemberRequest
+	(*RemoveGroupMemberResponse)(nil),   // 36: ratatouille.permission.v1.RemoveGroupMemberResponse
+	(*ListGroupMembersRequest)(nil),     // 37: ratatouille.permission.v1.ListGroupMembersRequest
+	(*ListGroupMembersResponse)(nil),    // 38: ratatouille.permission.v1.ListGroupMembersResponse
+	(*ListUserGroupsRequest)(nil),       // 39: ratatouille.permission.v1.ListUserGroupsRequest
+	(*ListUserGroupsResponse)(nil),      // 40: ratatouille.permission.v1.ListUserGroupsResponse
+	(*SyncExternalGroupsRequest)(nil),   // 41: ratatouille.permission.v1.SyncExternalGroupsRequest
+	(*ExternalGroupMapping)(nil),        // 42: ratatouille.permission.v1.ExternalGroupMapping
+	(*SyncExternalGroupsResponse)(nil),  // 43: ratatouille.permission.v1.SyncExternalGroupsResponse
+	(*timestamppb.Timestamp)(nil),       // 44: google.protobuf.Timestamp
 }
 var file_permission_v1_permission_proto_depIdxs = []int32{
 	0,  // 0: ratatouille.permission.v1.Grant.principal_type:type_name -> ratatouille.permission.v1.PrincipalType
-	42, // 1: ratatouille.permission.v1.Grant.created_at:type_name -> google.protobuf.Timestamp
+	44, // 1: ratatouille.permission.v1.Grant.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 2: ratatouille.permission.v1.EffectiveAccess.principal_type:type_name -> ratatouille.permission.v1.PrincipalType
-	42, // 3: ratatouille.permission.v1.GroupInfo.created_at:type_name -> google.protobuf.Timestamp
+	44, // 3: ratatouille.permission.v1.GroupInfo.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 4: ratatouille.permission.v1.GroupMember.member_type:type_name -> ratatouille.permission.v1.PrincipalType
-	42, // 5: ratatouille.permission.v1.GroupMember.added_at:type_name -> google.protobuf.Timestamp
+	44, // 5: ratatouille.permission.v1.GroupMember.added_at:type_name -> google.protobuf.Timestamp
 	1,  // 6: ratatouille.permission.v1.ListVerbsResponse.verbs:type_name -> ratatouille.permission.v1.VerbDefinition
 	0,  // 7: ratatouille.permission.v1.CreateGrantRequest.principal_type:type_name -> ratatouille.permission.v1.PrincipalType
 	2,  // 8: ratatouille.permission.v1.CreateGrantResponse.grant:type_name -> ratatouille.permission.v1.Grant
@@ -2482,50 +2571,53 @@ var file_permission_v1_permission_proto_depIdxs = []int32{
 	3,  // 13: ratatouille.permission.v1.ListResourceAccessResponse.access:type_name -> ratatouille.permission.v1.EffectiveAccess
 	3,  // 14: ratatouille.permission.v1.ListPrincipalAccessResponse.access:type_name -> ratatouille.permission.v1.EffectiveAccess
 	4,  // 15: ratatouille.permission.v1.CreateGroupResponse.group:type_name -> ratatouille.permission.v1.GroupInfo
-	0,  // 16: ratatouille.permission.v1.AddGroupMemberRequest.member_type:type_name -> ratatouille.permission.v1.PrincipalType
-	0,  // 17: ratatouille.permission.v1.RemoveGroupMemberRequest.member_type:type_name -> ratatouille.permission.v1.PrincipalType
-	5,  // 18: ratatouille.permission.v1.ListGroupMembersResponse.members:type_name -> ratatouille.permission.v1.GroupMember
-	4,  // 19: ratatouille.permission.v1.ListUserGroupsResponse.groups:type_name -> ratatouille.permission.v1.GroupInfo
-	40, // 20: ratatouille.permission.v1.SyncExternalGroupsRequest.mappings:type_name -> ratatouille.permission.v1.ExternalGroupMapping
-	6,  // 21: ratatouille.permission.v1.PermissionService.RegisterVerb:input_type -> ratatouille.permission.v1.RegisterVerbRequest
-	8,  // 22: ratatouille.permission.v1.PermissionService.ListVerbs:input_type -> ratatouille.permission.v1.ListVerbsRequest
-	10, // 23: ratatouille.permission.v1.PermissionService.RemoveResource:input_type -> ratatouille.permission.v1.RemoveResourceRequest
-	12, // 24: ratatouille.permission.v1.PermissionService.CreateGrant:input_type -> ratatouille.permission.v1.CreateGrantRequest
-	14, // 25: ratatouille.permission.v1.PermissionService.RevokeGrant:input_type -> ratatouille.permission.v1.RevokeGrantRequest
-	16, // 26: ratatouille.permission.v1.PermissionService.ListGrants:input_type -> ratatouille.permission.v1.ListGrantsRequest
-	18, // 27: ratatouille.permission.v1.PermissionService.CheckAccess:input_type -> ratatouille.permission.v1.CheckAccessRequest
-	20, // 28: ratatouille.permission.v1.PermissionService.BatchCheckAccess:input_type -> ratatouille.permission.v1.BatchCheckAccessRequest
-	23, // 29: ratatouille.permission.v1.PermissionService.ListResourceAccess:input_type -> ratatouille.permission.v1.ListResourceAccessRequest
-	25, // 30: ratatouille.permission.v1.PermissionService.ListPrincipalAccess:input_type -> ratatouille.permission.v1.ListPrincipalAccessRequest
-	27, // 31: ratatouille.permission.v1.PermissionService.CreateGroup:input_type -> ratatouille.permission.v1.CreateGroupRequest
-	29, // 32: ratatouille.permission.v1.PermissionService.DeleteGroup:input_type -> ratatouille.permission.v1.DeleteGroupRequest
-	31, // 33: ratatouille.permission.v1.PermissionService.AddGroupMember:input_type -> ratatouille.permission.v1.AddGroupMemberRequest
-	33, // 34: ratatouille.permission.v1.PermissionService.RemoveGroupMember:input_type -> ratatouille.permission.v1.RemoveGroupMemberRequest
-	35, // 35: ratatouille.permission.v1.PermissionService.ListGroupMembers:input_type -> ratatouille.permission.v1.ListGroupMembersRequest
-	37, // 36: ratatouille.permission.v1.PermissionService.ListUserGroups:input_type -> ratatouille.permission.v1.ListUserGroupsRequest
-	39, // 37: ratatouille.permission.v1.PermissionService.SyncExternalGroups:input_type -> ratatouille.permission.v1.SyncExternalGroupsRequest
-	7,  // 38: ratatouille.permission.v1.PermissionService.RegisterVerb:output_type -> ratatouille.permission.v1.RegisterVerbResponse
-	9,  // 39: ratatouille.permission.v1.PermissionService.ListVerbs:output_type -> ratatouille.permission.v1.ListVerbsResponse
-	11, // 40: ratatouille.permission.v1.PermissionService.RemoveResource:output_type -> ratatouille.permission.v1.RemoveResourceResponse
-	13, // 41: ratatouille.permission.v1.PermissionService.CreateGrant:output_type -> ratatouille.permission.v1.CreateGrantResponse
-	15, // 42: ratatouille.permission.v1.PermissionService.RevokeGrant:output_type -> ratatouille.permission.v1.RevokeGrantResponse
-	17, // 43: ratatouille.permission.v1.PermissionService.ListGrants:output_type -> ratatouille.permission.v1.ListGrantsResponse
-	19, // 44: ratatouille.permission.v1.PermissionService.CheckAccess:output_type -> ratatouille.permission.v1.CheckAccessResponse
-	22, // 45: ratatouille.permission.v1.PermissionService.BatchCheckAccess:output_type -> ratatouille.permission.v1.BatchCheckAccessResponse
-	24, // 46: ratatouille.permission.v1.PermissionService.ListResourceAccess:output_type -> ratatouille.permission.v1.ListResourceAccessResponse
-	26, // 47: ratatouille.permission.v1.PermissionService.ListPrincipalAccess:output_type -> ratatouille.permission.v1.ListPrincipalAccessResponse
-	28, // 48: ratatouille.permission.v1.PermissionService.CreateGroup:output_type -> ratatouille.permission.v1.CreateGroupResponse
-	30, // 49: ratatouille.permission.v1.PermissionService.DeleteGroup:output_type -> ratatouille.permission.v1.DeleteGroupResponse
-	32, // 50: ratatouille.permission.v1.PermissionService.AddGroupMember:output_type -> ratatouille.permission.v1.AddGroupMemberResponse
-	34, // 51: ratatouille.permission.v1.PermissionService.RemoveGroupMember:output_type -> ratatouille.permission.v1.RemoveGroupMemberResponse
-	36, // 52: ratatouille.permission.v1.PermissionService.ListGroupMembers:output_type -> ratatouille.permission.v1.ListGroupMembersResponse
-	38, // 53: ratatouille.permission.v1.PermissionService.ListUserGroups:output_type -> ratatouille.permission.v1.ListUserGroupsResponse
-	41, // 54: ratatouille.permission.v1.PermissionService.SyncExternalGroups:output_type -> ratatouille.permission.v1.SyncExternalGroupsResponse
-	38, // [38:55] is the sub-list for method output_type
-	21, // [21:38] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	4,  // 16: ratatouille.permission.v1.ListGroupsResponse.groups:type_name -> ratatouille.permission.v1.GroupInfo
+	0,  // 17: ratatouille.permission.v1.AddGroupMemberRequest.member_type:type_name -> ratatouille.permission.v1.PrincipalType
+	0,  // 18: ratatouille.permission.v1.RemoveGroupMemberRequest.member_type:type_name -> ratatouille.permission.v1.PrincipalType
+	5,  // 19: ratatouille.permission.v1.ListGroupMembersResponse.members:type_name -> ratatouille.permission.v1.GroupMember
+	4,  // 20: ratatouille.permission.v1.ListUserGroupsResponse.groups:type_name -> ratatouille.permission.v1.GroupInfo
+	42, // 21: ratatouille.permission.v1.SyncExternalGroupsRequest.mappings:type_name -> ratatouille.permission.v1.ExternalGroupMapping
+	6,  // 22: ratatouille.permission.v1.PermissionService.RegisterVerb:input_type -> ratatouille.permission.v1.RegisterVerbRequest
+	8,  // 23: ratatouille.permission.v1.PermissionService.ListVerbs:input_type -> ratatouille.permission.v1.ListVerbsRequest
+	10, // 24: ratatouille.permission.v1.PermissionService.RemoveResource:input_type -> ratatouille.permission.v1.RemoveResourceRequest
+	12, // 25: ratatouille.permission.v1.PermissionService.CreateGrant:input_type -> ratatouille.permission.v1.CreateGrantRequest
+	14, // 26: ratatouille.permission.v1.PermissionService.RevokeGrant:input_type -> ratatouille.permission.v1.RevokeGrantRequest
+	16, // 27: ratatouille.permission.v1.PermissionService.ListGrants:input_type -> ratatouille.permission.v1.ListGrantsRequest
+	18, // 28: ratatouille.permission.v1.PermissionService.CheckAccess:input_type -> ratatouille.permission.v1.CheckAccessRequest
+	20, // 29: ratatouille.permission.v1.PermissionService.BatchCheckAccess:input_type -> ratatouille.permission.v1.BatchCheckAccessRequest
+	23, // 30: ratatouille.permission.v1.PermissionService.ListResourceAccess:input_type -> ratatouille.permission.v1.ListResourceAccessRequest
+	25, // 31: ratatouille.permission.v1.PermissionService.ListPrincipalAccess:input_type -> ratatouille.permission.v1.ListPrincipalAccessRequest
+	27, // 32: ratatouille.permission.v1.PermissionService.CreateGroup:input_type -> ratatouille.permission.v1.CreateGroupRequest
+	29, // 33: ratatouille.permission.v1.PermissionService.ListGroups:input_type -> ratatouille.permission.v1.ListGroupsRequest
+	31, // 34: ratatouille.permission.v1.PermissionService.DeleteGroup:input_type -> ratatouille.permission.v1.DeleteGroupRequest
+	33, // 35: ratatouille.permission.v1.PermissionService.AddGroupMember:input_type -> ratatouille.permission.v1.AddGroupMemberRequest
+	35, // 36: ratatouille.permission.v1.PermissionService.RemoveGroupMember:input_type -> ratatouille.permission.v1.RemoveGroupMemberRequest
+	37, // 37: ratatouille.permission.v1.PermissionService.ListGroupMembers:input_type -> ratatouille.permission.v1.ListGroupMembersRequest
+	39, // 38: ratatouille.permission.v1.PermissionService.ListUserGroups:input_type -> ratatouille.permission.v1.ListUserGroupsRequest
+	41, // 39: ratatouille.permission.v1.PermissionService.SyncExternalGroups:input_type -> ratatouille.permission.v1.SyncExternalGroupsRequest
+	7,  // 40: ratatouille.permission.v1.PermissionService.RegisterVerb:output_type -> ratatouille.permission.v1.RegisterVerbResponse
+	9,  // 41: ratatouille.permission.v1.PermissionService.ListVerbs:output_type -> ratatouille.permission.v1.ListVerbsResponse
+	11, // 42: ratatouille.permission.v1.PermissionService.RemoveResource:output_type -> ratatouille.permission.v1.RemoveResourceResponse
+	13, // 43: ratatouille.permission.v1.PermissionService.CreateGrant:output_type -> ratatouille.permission.v1.CreateGrantResponse
+	15, // 44: ratatouille.permission.v1.PermissionService.RevokeGrant:output_type -> ratatouille.permission.v1.RevokeGrantResponse
+	17, // 45: ratatouille.permission.v1.PermissionService.ListGrants:output_type -> ratatouille.permission.v1.ListGrantsResponse
+	19, // 46: ratatouille.permission.v1.PermissionService.CheckAccess:output_type -> ratatouille.permission.v1.CheckAccessResponse
+	22, // 47: ratatouille.permission.v1.PermissionService.BatchCheckAccess:output_type -> ratatouille.permission.v1.BatchCheckAccessResponse
+	24, // 48: ratatouille.permission.v1.PermissionService.ListResourceAccess:output_type -> ratatouille.permission.v1.ListResourceAccessResponse
+	26, // 49: ratatouille.permission.v1.PermissionService.ListPrincipalAccess:output_type -> ratatouille.permission.v1.ListPrincipalAccessResponse
+	28, // 50: ratatouille.permission.v1.PermissionService.CreateGroup:output_type -> ratatouille.permission.v1.CreateGroupResponse
+	30, // 51: ratatouille.permission.v1.PermissionService.ListGroups:output_type -> ratatouille.permission.v1.ListGroupsResponse
+	32, // 52: ratatouille.permission.v1.PermissionService.DeleteGroup:output_type -> ratatouille.permission.v1.DeleteGroupResponse
+	34, // 53: ratatouille.permission.v1.PermissionService.AddGroupMember:output_type -> ratatouille.permission.v1.AddGroupMemberResponse
+	36, // 54: ratatouille.permission.v1.PermissionService.RemoveGroupMember:output_type -> ratatouille.permission.v1.RemoveGroupMemberResponse
+	38, // 55: ratatouille.permission.v1.PermissionService.ListGroupMembers:output_type -> ratatouille.permission.v1.ListGroupMembersResponse
+	40, // 56: ratatouille.permission.v1.PermissionService.ListUserGroups:output_type -> ratatouille.permission.v1.ListUserGroupsResponse
+	43, // 57: ratatouille.permission.v1.PermissionService.SyncExternalGroups:output_type -> ratatouille.permission.v1.SyncExternalGroupsResponse
+	40, // [40:58] is the sub-list for method output_type
+	22, // [22:40] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_permission_v1_permission_proto_init() }
@@ -2539,7 +2631,7 @@ func file_permission_v1_permission_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_permission_v1_permission_proto_rawDesc), len(file_permission_v1_permission_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   41,
+			NumMessages:   43,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

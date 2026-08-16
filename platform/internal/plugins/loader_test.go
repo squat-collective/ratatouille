@@ -13,6 +13,8 @@ import (
 	"github.com/rat-data/rat/platform/gen/cloud/v1/cloudv1connect"
 	commonv1 "github.com/rat-data/rat/platform/gen/common/v1"
 	executorv1 "github.com/rat-data/rat/platform/gen/executor/v1"
+	permissionv1 "github.com/rat-data/rat/platform/gen/permission/v1"
+	"github.com/rat-data/rat/platform/gen/permission/v1/permissionv1connect"
 	"github.com/rat-data/rat/platform/gen/executor/v1/executorv1connect"
 	pluginv1 "github.com/rat-data/rat/platform/gen/plugin/v1"
 	"github.com/rat-data/rat/platform/gen/plugin/v1/pluginv1connect"
@@ -104,6 +106,20 @@ func (m *mockCloudClient) GetCredentials(ctx context.Context, req *connect.Reque
 	}), nil
 }
 
+// --- Mock permission client ---
+
+type mockPermissionClient struct {
+	permissionv1connect.UnimplementedPermissionServiceHandler
+	listGroupsFunc func(context.Context, *connect.Request[permissionv1.ListGroupsRequest]) (*connect.Response[permissionv1.ListGroupsResponse], error)
+}
+
+func (m *mockPermissionClient) ListGroups(ctx context.Context, req *connect.Request[permissionv1.ListGroupsRequest]) (*connect.Response[permissionv1.ListGroupsResponse], error) {
+	if m.listGroupsFunc != nil {
+		return m.listGroupsFunc(ctx, req)
+	}
+	return connect.NewResponse(&permissionv1.ListGroupsResponse{}), nil
+}
+
 // --- Test factory ---
 
 func mockFactory(plugin *mockPluginClient, auth *mockAuthClient) *pluginClientFactory {
@@ -115,6 +131,10 @@ func mockFactoryWithExecutor(plugin *mockPluginClient, auth *mockAuthClient, exe
 }
 
 func mockFactoryFull(plugin *mockPluginClient, auth *mockAuthClient, exec executorv1connect.ExecutorServiceClient, cloud cloudv1connect.CloudServiceClient) *pluginClientFactory {
+	return mockFactoryWithAll(plugin, auth, exec, cloud, &mockPermissionClient{})
+}
+
+func mockFactoryWithAll(plugin *mockPluginClient, auth *mockAuthClient, exec executorv1connect.ExecutorServiceClient, cloud cloudv1connect.CloudServiceClient, perm permissionv1connect.PermissionServiceClient) *pluginClientFactory {
 	return &pluginClientFactory{
 		newPluginClient: func(_ connect.HTTPClient, _ string, _ ...connect.ClientOption) pluginv1connect.PluginServiceClient {
 			return plugin
@@ -127,6 +147,9 @@ func mockFactoryFull(plugin *mockPluginClient, auth *mockAuthClient, exec execut
 		},
 		newCloudClient: func(_ connect.HTTPClient, _ string, _ ...connect.ClientOption) cloudv1connect.CloudServiceClient {
 			return cloud
+		},
+		newPermissionClient: func(_ connect.HTTPClient, _ string, _ ...connect.ClientOption) permissionv1connect.PermissionServiceClient {
+			return perm
 		},
 	}
 }
@@ -453,4 +476,95 @@ func TestFeatures_NoCloudPlugin_DisabledInFeatures(t *testing.T) {
 	features := reg.Features()
 
 	assert.False(t, features.Plugins["cloud"].Enabled)
+}
+
+// --- Permission plugin tests ---
+
+func TestLoad_PermissionPlugin_Healthy_Enabled(t *testing.T) {
+	cfg := &config.Config{
+		Edition: "pro",
+		Plugins: map[string]config.PluginConfig{
+			"permission": {Addr: "acl:50080"},
+		},
+	}
+
+	plugin := &mockPluginClient{}
+	auth := &mockAuthClient{}
+	perm := &mockPermissionClient{}
+	factory := mockFactoryWithAll(plugin, auth, &mockExecutorClient{}, &mockCloudClient{}, perm)
+
+	reg, err := loadWithFactory(context.Background(), cfg, factory, http.DefaultClient)
+	require.NoError(t, err)
+
+	assert.True(t, reg.PermissionEnabled())
+}
+
+func TestLoad_PermissionPlugin_Unhealthy_Disabled(t *testing.T) {
+	cfg := &config.Config{
+		Edition: "pro",
+		Plugins: map[string]config.PluginConfig{
+			"permission": {Addr: "acl:50080"},
+		},
+	}
+
+	plugin := &mockPluginClient{
+		healthFunc: func(_ context.Context, _ *connect.Request[pluginv1.HealthCheckRequest]) (*connect.Response[pluginv1.HealthCheckResponse], error) {
+			return nil, connect.NewError(connect.CodeUnavailable, errors.New("connection refused"))
+		},
+	}
+	auth := &mockAuthClient{}
+	perm := &mockPermissionClient{}
+	factory := mockFactoryWithAll(plugin, auth, &mockExecutorClient{}, &mockCloudClient{}, perm)
+
+	reg, err := loadWithFactory(context.Background(), cfg, factory, http.DefaultClient)
+	require.NoError(t, err)
+
+	assert.False(t, reg.PermissionEnabled(), "unhealthy permission plugin should be disabled")
+}
+
+func TestFeatures_PermissionPlugin_ReflectsInFeatures(t *testing.T) {
+	reg := &Registry{
+		edition:    "pro",
+		permission: &permissionPlugin{client: &mockPermissionClient{}},
+	}
+	features := reg.Features()
+
+	assert.True(t, features.Plugins["permission"].Enabled)
+}
+
+func TestFeatures_NoPermissionPlugin_DisabledInFeatures(t *testing.T) {
+	reg := &Registry{edition: "community"}
+	features := reg.Features()
+
+	assert.False(t, features.Plugins["permission"].Enabled)
+}
+
+func TestListGroups_WithPlugin_DelegatesToClient(t *testing.T) {
+	mock := &mockPermissionClient{
+		listGroupsFunc: func(_ context.Context, _ *connect.Request[permissionv1.ListGroupsRequest]) (*connect.Response[permissionv1.ListGroupsResponse], error) {
+			return connect.NewResponse(&permissionv1.ListGroupsResponse{
+				Groups: []*permissionv1.GroupInfo{
+					{GroupId: "grp-1", Name: "data-eng"},
+				},
+			}), nil
+		},
+	}
+
+	reg := &Registry{
+		edition:    "pro",
+		permission: &permissionPlugin{client: mock},
+	}
+
+	resp, err := reg.ListGroups(context.Background())
+	require.NoError(t, err)
+	require.Len(t, resp.Groups, 1)
+	assert.Equal(t, "data-eng", resp.Groups[0].Name)
+}
+
+func TestListGroups_NoPlugin_ReturnsError(t *testing.T) {
+	reg := &Registry{edition: "community"}
+
+	_, err := reg.ListGroups(context.Background())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not loaded")
 }

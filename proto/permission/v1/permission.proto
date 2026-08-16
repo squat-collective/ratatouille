@@ -65,6 +65,9 @@ service PermissionService {
   // Create an engine-managed group.
   rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
 
+  // List all engine-managed groups.
+  rpc ListGroups(ListGroupsRequest) returns (ListGroupsResponse);
+
   // Delete an engine-managed group and all its memberships.
   rpc DeleteGroup(DeleteGroupRequest) returns (DeleteGroupResponse);
 
@@ -317,6 +320,14 @@ message CreateGroupRequest {
 // CreateGroupResponse returns the created group.
 message CreateGroupResponse {
   GroupInfo group = 1;                 // the created group
+}
+
+// ListGroupsRequest requests all engine-managed groups.
+message ListGroupsRequest {}
+
+// ListGroupsResponse returns all engine-managed groups.
+message ListGroupsResponse {
+  repeated GroupInfo groups = 1;       // all engine-managed groups
 }
 
 // DeleteGroupRequest deletes a group and all its memberships and grants.

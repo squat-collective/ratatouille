@@ -101,6 +101,34 @@ export type {
   WebhookListResponse,
   CreateWebhookRequest,
   CreateWebhookResponse,
+  PrincipalType,
+  Grant,
+  GrantListResponse,
+  CreateGrantRequest,
+  CreateGrantResponse,
+  VerbDefinition,
+  VerbListResponse,
+  GroupInfo,
+  GroupListResponse,
+  GroupMember,
+  GroupMembersResponse,
+  EffectiveAccess,
+  ResourceAccessResponse,
+  PrincipalAccessResponse,
+  CheckAccessRequest,
+  CheckAccessResponse,
+  RemoveResourceResponse,
+  RevokeGrantResponse,
+  CreateGroupResponse,
+  DeleteGroupResponse,
+  RemoveGroupMemberResponse,
+  IdentityGroup,
+  IdentityUser,
+  IdentityUserSummary,
+  IdentityCapabilities,
+  IdentityUserListResponse,
+  IdentityUserSearchResponse,
+  IdentityGroupListResponse,
 } from "./models";
 
 export { HealthResource } from "./resources/health";
@@ -114,3 +142,7 @@ export { TriggersResource } from "./resources/triggers";
 export { QualityResource } from "./resources/quality";
 export { LineageResource } from "./resources/lineage";
 export { RetentionResource } from "./resources/retention";
+export { PermissionsResource } from "./resources/permissions";
+export type { GrantFilters } from "./resources/permissions";
+export { IdentityResource } from "./resources/identity";
+export type { IdentityUserFilters } from "./resources/identity";

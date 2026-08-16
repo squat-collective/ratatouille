@@ -10,3 +10,5 @@ export { TriggersResource } from "./triggers";
 export { QualityResource } from "./quality";
 export { LineageResource } from "./lineage";
 export { RetentionResource } from "./retention";
+export { PermissionsResource } from "./permissions";
+export { IdentityResource } from "./identity";

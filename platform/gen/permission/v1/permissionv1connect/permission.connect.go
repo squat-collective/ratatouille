@@ -66,6 +66,9 @@ const (
 	// PermissionServiceCreateGroupProcedure is the fully-qualified name of the PermissionService's
 	// CreateGroup RPC.
 	PermissionServiceCreateGroupProcedure = "/ratatouille.permission.v1.PermissionService/CreateGroup"
+	// PermissionServiceListGroupsProcedure is the fully-qualified name of the PermissionService's
+	// ListGroups RPC.
+	PermissionServiceListGroupsProcedure = "/ratatouille.permission.v1.PermissionService/ListGroups"
 	// PermissionServiceDeleteGroupProcedure is the fully-qualified name of the PermissionService's
 	// DeleteGroup RPC.
 	PermissionServiceDeleteGroupProcedure = "/ratatouille.permission.v1.PermissionService/DeleteGroup"
@@ -114,6 +117,8 @@ type PermissionServiceClient interface {
 	ListPrincipalAccess(context.Context, *connect.Request[v1.ListPrincipalAccessRequest]) (*connect.Response[v1.ListPrincipalAccessResponse], error)
 	// Create an engine-managed group.
 	CreateGroup(context.Context, *connect.Request[v1.CreateGroupRequest]) (*connect.Response[v1.CreateGroupResponse], error)
+	// List all engine-managed groups.
+	ListGroups(context.Context, *connect.Request[v1.ListGroupsRequest]) (*connect.Response[v1.ListGroupsResponse], error)
 	// Delete an engine-managed group and all its memberships.
 	DeleteGroup(context.Context, *connect.Request[v1.DeleteGroupRequest]) (*connect.Response[v1.DeleteGroupResponse], error)
 	// Add a member (user or nested group) to a group.
@@ -206,6 +211,12 @@ func NewPermissionServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(permissionServiceMethods.ByName("CreateGroup")),
 			connect.WithClientOptions(opts...),
 		),
+		listGroups: connect.NewClient[v1.ListGroupsRequest, v1.ListGroupsResponse](
+			httpClient,
+			baseURL+PermissionServiceListGroupsProcedure,
+			connect.WithSchema(permissionServiceMethods.ByName("ListGroups")),
+			connect.WithClientOptions(opts...),
+		),
 		deleteGroup: connect.NewClient[v1.DeleteGroupRequest, v1.DeleteGroupResponse](
 			httpClient,
 			baseURL+PermissionServiceDeleteGroupProcedure,
@@ -258,6 +269,7 @@ type permissionServiceClient struct {
 	listResourceAccess  *connect.Client[v1.ListResourceAccessRequest, v1.ListResourceAccessResponse]
 	listPrincipalAccess *connect.Client[v1.ListPrincipalAccessRequest, v1.ListPrincipalAccessResponse]
 	createGroup         *connect.Client[v1.CreateGroupRequest, v1.CreateGroupResponse]
+	listGroups          *connect.Client[v1.ListGroupsRequest, v1.ListGroupsResponse]
 	deleteGroup         *connect.Client[v1.DeleteGroupRequest, v1.DeleteGroupResponse]
 	addGroupMember      *connect.Client[v1.AddGroupMemberRequest, v1.AddGroupMemberResponse]
 	removeGroupMember   *connect.Client[v1.RemoveGroupMemberRequest, v1.RemoveGroupMemberResponse]
@@ -321,6 +333,11 @@ func (c *permissionServiceClient) CreateGroup(ctx context.Context, req *connect.
 	return c.createGroup.CallUnary(ctx, req)
 }
 
+// ListGroups calls ratatouille.permission.v1.PermissionService.ListGroups.
+func (c *permissionServiceClient) ListGroups(ctx context.Context, req *connect.Request[v1.ListGroupsRequest]) (*connect.Response[v1.ListGroupsResponse], error) {
+	return c.listGroups.CallUnary(ctx, req)
+}
+
 // DeleteGroup calls ratatouille.permission.v1.PermissionService.DeleteGroup.
 func (c *permissionServiceClient) DeleteGroup(ctx context.Context, req *connect.Request[v1.DeleteGroupRequest]) (*connect.Response[v1.DeleteGroupResponse], error) {
 	return c.deleteGroup.CallUnary(ctx, req)
@@ -380,6 +397,8 @@ type PermissionServiceHandler interface {
 	ListPrincipalAccess(context.Context, *connect.Request[v1.ListPrincipalAccessRequest]) (*connect.Response[v1.ListPrincipalAccessResponse], error)
 	// Create an engine-managed group.
 	CreateGroup(context.Context, *connect.Request[v1.CreateGroupRequest]) (*connect.Response[v1.CreateGroupResponse], error)
+	// List all engine-managed groups.
+	ListGroups(context.Context, *connect.Request[v1.ListGroupsRequest]) (*connect.Response[v1.ListGroupsResponse], error)
 	// Delete an engine-managed group and all its memberships.
 	DeleteGroup(context.Context, *connect.Request[v1.DeleteGroupRequest]) (*connect.Response[v1.DeleteGroupResponse], error)
 	// Add a member (user or nested group) to a group.
@@ -467,6 +486,12 @@ func NewPermissionServiceHandler(svc PermissionServiceHandler, opts ...connect.H
 		connect.WithSchema(permissionServiceMethods.ByName("CreateGroup")),
 		connect.WithHandlerOptions(opts...),
 	)
+	permissionServiceListGroupsHandler := connect.NewUnaryHandler(
+		PermissionServiceListGroupsProcedure,
+		svc.ListGroups,
+		connect.WithSchema(permissionServiceMethods.ByName("ListGroups")),
+		connect.WithHandlerOptions(opts...),
+	)
 	permissionServiceDeleteGroupHandler := connect.NewUnaryHandler(
 		PermissionServiceDeleteGroupProcedure,
 		svc.DeleteGroup,
@@ -527,6 +552,8 @@ func NewPermissionServiceHandler(svc PermissionServiceHandler, opts ...connect.H
 			permissionServiceListPrincipalAccessHandler.ServeHTTP(w, r)
 		case PermissionServiceCreateGroupProcedure:
 			permissionServiceCreateGroupHandler.ServeHTTP(w, r)
+		case PermissionServiceListGroupsProcedure:
+			permissionServiceListGroupsHandler.ServeHTTP(w, r)
 		case PermissionServiceDeleteGroupProcedure:
 			permissionServiceDeleteGroupHandler.ServeHTTP(w, r)
 		case PermissionServiceAddGroupMemberProcedure:
@@ -590,6 +617,10 @@ func (UnimplementedPermissionServiceHandler) ListPrincipalAccess(context.Context
 
 func (UnimplementedPermissionServiceHandler) CreateGroup(context.Context, *connect.Request[v1.CreateGroupRequest]) (*connect.Response[v1.CreateGroupResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ratatouille.permission.v1.PermissionService.CreateGroup is not implemented"))
+}
+
+func (UnimplementedPermissionServiceHandler) ListGroups(context.Context, *connect.Request[v1.ListGroupsRequest]) (*connect.Response[v1.ListGroupsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ratatouille.permission.v1.PermissionService.ListGroups is not implemented"))
 }
 
 func (UnimplementedPermissionServiceHandler) DeleteGroup(context.Context, *connect.Request[v1.DeleteGroupRequest]) (*connect.Response[v1.DeleteGroupResponse], error) {
