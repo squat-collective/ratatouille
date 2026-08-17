@@ -1,4 +1,4 @@
-FROM golang:1.26-alpine@sha256:91eda9776261207ea25fd06b5b7fed8d397dd2c0a283e77f2ab6e91bfa71079d AS builder
+FROM golang:1.26-alpine@sha256:3889b425f035be855a72fb4755265311293b6d414521f0a519d819df32222d83 AS builder
 WORKDIR /build
 
 COPY --from=platform . /platform/
@@ -11,7 +11,7 @@ RUN go mod tidy && CGO_ENABLED=0 go build -ldflags="-s -w" -o /compaction .
 # We pin pyiceberg to match what runner ships (0.11.x); pyarrow follows from
 # the pyiceberg constraint. Slim image keeps the final container ~300 MB
 # instead of ~1.5 GB.
-FROM python:3.14-slim@sha256:c845af9399020c7e562969a13689e929074a10fd057acd1b1fad06a2fb068e97
+FROM python:3.14-slim@sha256:ce40764625a4ff50df3548277632e7f96c4e77fe75fa848aae9885476e7df5a4
 # pyiceberg ships no cp314 wheel yet, so its avro C extension compiles from
 # sdist — install build-essential just long enough to build the wheel, then
 # purge it in the same layer so the final image stays slim (no compiler shipped).
