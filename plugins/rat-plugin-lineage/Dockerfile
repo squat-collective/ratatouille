@@ -13,14 +13,14 @@
 #     -t rat-plugin-lineage examples/rat-plugin-lineage
 #
 # Or `make build` from this directory.
-FROM node:26-alpine@sha256:7c6af15abe4e3de859690e7db171d0d711bf37d27528eddfe625b2fe89e097f8 AS ui-builder
+FROM node:26-alpine@sha256:aadf416b2cdce311a8811ba3f0608a61b77dbf997500e2eafe781b51f6a0b019 AS ui-builder
 WORKDIR /ui
 COPY ui/package.json ui/package-lock.json* ./
 RUN npm install --no-audit --no-fund --silent || npm install --no-audit --no-fund
 COPY ui/ ./
 RUN npm run build
 
-FROM golang:1.26-alpine@sha256:91eda9776261207ea25fd06b5b7fed8d397dd2c0a283e77f2ab6e91bfa71079d AS go-builder
+FROM golang:1.26-alpine@sha256:3889b425f035be855a72fb4755265311293b6d414521f0a519d819df32222d83 AS go-builder
 WORKDIR /build
 COPY --from=platform . /platform/
 COPY --from=sdk . /sdk-go/
@@ -30,7 +30,7 @@ COPY . .
 COPY --from=ui-builder /ui/dist/bundle.js ./ui/dist/bundle.js
 RUN go mod tidy && CGO_ENABLED=0 go build -ldflags="-s -w" -o /lineage .
 
-FROM alpine:3.23@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
+FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 RUN addgroup -S rat && adduser -S -G rat rat
 COPY --from=go-builder /lineage /lineage
 USER rat
