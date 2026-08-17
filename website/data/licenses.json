@@ -9,7 +9,7 @@
   },
   {
     "name": "boto3",
-    "version": "1.43.67",
+    "version": "1.43.72",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/boto3",
     "component": "runner",
@@ -17,7 +17,7 @@
   },
   {
     "name": "botocore",
-    "version": "1.43.67",
+    "version": "1.43.72",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/botocore",
     "component": "runner",
@@ -41,7 +41,7 @@
   },
   {
     "name": "charset-normalizer",
-    "version": "3.4.9",
+    "version": "3.5.1",
     "license": "MIT",
     "url": "https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md",
     "component": "runner",
@@ -145,7 +145,7 @@
   },
   {
     "name": "pyarrow",
-    "version": "25.0.0",
+    "version": "25.0.1",
     "license": "Apache-2.0",
     "url": "https://arrow.apache.org/",
     "component": "runner",
@@ -265,7 +265,7 @@
   },
   {
     "name": "typing-inspection",
-    "version": "0.4.2",
+    "version": "0.4.4",
     "license": "MIT",
     "url": "https://github.com/pydantic/typing-inspection",
     "component": "runner",
@@ -385,7 +385,7 @@
   },
   {
     "name": "boto3",
-    "version": "1.43.67",
+    "version": "1.43.72",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/boto3",
     "component": "query",
@@ -393,7 +393,7 @@
   },
   {
     "name": "botocore",
-    "version": "1.43.67",
+    "version": "1.43.72",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/botocore",
     "component": "query",
@@ -417,7 +417,7 @@
   },
   {
     "name": "charset-normalizer",
-    "version": "3.4.9",
+    "version": "3.5.1",
     "license": "MIT",
     "url": "https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md",
     "component": "query",
@@ -569,7 +569,7 @@
   },
   {
     "name": "pyarrow",
-    "version": "25.0.0",
+    "version": "25.0.1",
     "license": "Apache-2.0",
     "url": "https://arrow.apache.org/",
     "component": "query",
@@ -721,7 +721,7 @@
   },
   {
     "name": "typing-inspection",
-    "version": "0.4.2",
+    "version": "0.4.4",
     "license": "MIT",
     "url": "https://github.com/pydantic/typing-inspection",
     "component": "query",
