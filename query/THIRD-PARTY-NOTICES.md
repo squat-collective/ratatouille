@@ -7,8 +7,8 @@
 | Package | Version | License | URL |
 |---------|---------|---------|-----|
 | `annotated-types` | 0.8.0 | MIT | https://github.com/annotated-types/annotated-types |
-| `boto3` | 1.43.72 | Apache-2.0 | https://github.com/boto/boto3 |
-| `botocore` | 1.43.72 | Apache-2.0 | https://github.com/boto/botocore |
+| `boto3` | 1.43.78 | Apache-2.0 | https://github.com/boto/boto3 |
+| `botocore` | 1.43.78 | Apache-2.0 | https://github.com/boto/botocore |
 | `cachetools` | 6.2.6 | MIT | https://github.com/tkem/cachetools/ |
 | `certifi` | 2026.7.22 | Mozilla Public License 2.0 (MPL 2.0) | https://github.com/certifi/python-certifi |
 | `charset-normalizer` | 3.5.1 | MIT | https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md |
@@ -18,7 +18,7 @@
 | `fsspec` | 2026.7.0 | BSD-3-Clause | https://github.com/fsspec/filesystem_spec |
 | `grpcio` | 1.83.0 | Apache-2.0 | https://grpc.io |
 | `grpcio-tools` | 1.83.0 | Apache-2.0 | https://grpc.io |
-| `idna` | 3.18 | BSD-3-Clause | https://github.com/kjd/idna |
+| `idna` | 3.19 | BSD-3-Clause | https://github.com/kjd/idna |
 | `iniconfig` | 2.3.0 | MIT | https://github.com/pytest-dev/iniconfig |
 | `Jinja2` | 3.1.6 | BSD License | https://github.com/pallets/jinja/ |
 | `jmespath` | 1.1.0 | MIT License | https://github.com/jmespath/jmespath.py |
@@ -29,11 +29,11 @@
 | `nodeenv` | 1.10.0 | BSD License | https://github.com/ekalinin/nodeenv |
 | `packaging` | 26.3 | Apache-2.0 OR BSD-2-Clause | https://github.com/pypa/packaging |
 | `pluggy` | 1.6.0 | MIT License | UNKNOWN |
-| `protobuf` | 7.35.1 | 3-Clause BSD License | https://developers.google.com/protocol-buffers/ |
+| `protobuf` | 7.36.0 | 3-Clause BSD License | https://developers.google.com/protocol-buffers/ |
 | `pyarrow` | 25.0.1 | Apache-2.0 | https://arrow.apache.org/ |
 | `pydantic` | 2.13.4 | MIT | https://github.com/pydantic/pydantic |
 | `pydantic_core` | 2.46.4 | MIT | https://github.com/pydantic |
-| `Pygments` | 2.20.0 | BSD-2-Clause | https://pygments.org |
+| `Pygments` | 2.21.0 | BSD-2-Clause | https://pygments.org |
 | `pyiceberg` | 0.11.1 | Apache-2.0 | https://py.iceberg.apache.org/ |
 | `pyparsing` | 3.3.2 | MIT | https://github.com/pyparsing/pyparsing/ |
 | `pyright` | 1.1.411 | MIT | https://github.com/RobertCraigie/pyright-python |

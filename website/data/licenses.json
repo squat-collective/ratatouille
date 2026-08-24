@@ -9,7 +9,7 @@
   },
   {
     "name": "boto3",
-    "version": "1.43.72",
+    "version": "1.43.78",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/boto3",
     "component": "runner",
@@ -17,7 +17,7 @@
   },
   {
     "name": "botocore",
-    "version": "1.43.72",
+    "version": "1.43.78",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/botocore",
     "component": "runner",
@@ -81,7 +81,7 @@
   },
   {
     "name": "idna",
-    "version": "3.18",
+    "version": "3.19",
     "license": "BSD-3-Clause",
     "url": "https://github.com/kjd/idna",
     "component": "runner",
@@ -137,7 +137,7 @@
   },
   {
     "name": "protobuf",
-    "version": "7.35.1",
+    "version": "7.36.0",
     "license": "3-Clause BSD License",
     "url": "https://developers.google.com/protocol-buffers/",
     "component": "runner",
@@ -169,7 +169,7 @@
   },
   {
     "name": "Pygments",
-    "version": "2.20.0",
+    "version": "2.21.0",
     "license": "BSD-2-Clause",
     "url": "https://pygments.org",
     "component": "runner",
@@ -385,7 +385,7 @@
   },
   {
     "name": "boto3",
-    "version": "1.43.72",
+    "version": "1.43.78",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/boto3",
     "component": "query",
@@ -393,7 +393,7 @@
   },
   {
     "name": "botocore",
-    "version": "1.43.72",
+    "version": "1.43.78",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/botocore",
     "component": "query",
@@ -473,7 +473,7 @@
   },
   {
     "name": "idna",
-    "version": "3.18",
+    "version": "3.19",
     "license": "BSD-3-Clause",
     "url": "https://github.com/kjd/idna",
     "component": "query",
@@ -561,7 +561,7 @@
   },
   {
     "name": "protobuf",
-    "version": "7.35.1",
+    "version": "7.36.0",
     "license": "3-Clause BSD License",
     "url": "https://developers.google.com/protocol-buffers/",
     "component": "query",
@@ -593,7 +593,7 @@
   },
   {
     "name": "Pygments",
-    "version": "2.20.0",
+    "version": "2.21.0",
     "license": "BSD-2-Clause",
     "url": "https://pygments.org",
     "component": "query",
