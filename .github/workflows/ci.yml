@@ -23,9 +23,9 @@ jobs:
       run:
         working-directory: platform
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.26"
           cache-dependency-path: platform/go.sum
@@ -41,9 +41,9 @@ jobs:
       run:
         working-directory: runner
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
 
@@ -64,9 +64,9 @@ jobs:
       run:
         working-directory: query
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
 
@@ -84,9 +84,9 @@ jobs:
     name: TypeScript Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "26"
           cache: npm
@@ -133,10 +133,10 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # — Go lint —
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.26"
           cache-dependency-path: platform/go.sum
@@ -194,7 +194,7 @@ jobs:
     name: Security
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: gitleaks secret scan
         run: make security-secrets
 
@@ -203,7 +203,7 @@ jobs:
     name: Docs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: docs-check
         run: make docs-check
 
@@ -212,7 +212,7 @@ jobs:
     name: Docker Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -264,13 +264,13 @@ jobs:
     name: Integration Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
       - name: Cache Go modules
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/go-build
@@ -317,7 +317,7 @@ jobs:
           - rat-plugin-pg-sync
           - rat-plugin-secrets
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -325,7 +325,7 @@ jobs:
       # All plugins share the platform module via the local `replace`
       # directive, so caching ~/go/pkg/mod across the matrix is a big win.
       - name: Cache Go modules
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/go-build
