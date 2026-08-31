@@ -9,7 +9,7 @@
   },
   {
     "name": "boto3",
-    "version": "1.43.78",
+    "version": "1.43.83",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/boto3",
     "component": "runner",
@@ -17,7 +17,7 @@
   },
   {
     "name": "botocore",
-    "version": "1.43.78",
+    "version": "1.43.83",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/botocore",
     "component": "runner",
@@ -49,7 +49,7 @@
   },
   {
     "name": "click",
-    "version": "8.4.2",
+    "version": "8.5.0",
     "license": "BSD-3-Clause",
     "url": "https://github.com/pallets/click/",
     "component": "runner",
@@ -73,7 +73,7 @@
   },
   {
     "name": "grpcio",
-    "version": "1.83.0",
+    "version": "1.83.1",
     "license": "Apache-2.0",
     "url": "https://grpc.io",
     "component": "runner",
@@ -129,7 +129,7 @@
   },
   {
     "name": "mmh3",
-    "version": "5.2.1",
+    "version": "5.3.0",
     "license": "MIT License",
     "url": "https://pypi.org/project/mmh3/",
     "component": "runner",
@@ -153,7 +153,7 @@
   },
   {
     "name": "pydantic",
-    "version": "2.13.4",
+    "version": "2.13.5",
     "license": "MIT",
     "url": "https://github.com/pydantic/pydantic",
     "component": "runner",
@@ -161,7 +161,7 @@
   },
   {
     "name": "pydantic_core",
-    "version": "2.46.4",
+    "version": "2.46.5",
     "license": "MIT",
     "url": "https://github.com/pydantic",
     "component": "runner",
@@ -297,7 +297,7 @@
   },
   {
     "name": "coverage",
-    "version": "7.15.4",
+    "version": "7.16.0",
     "license": "Apache-2.0",
     "url": "https://github.com/coveragepy/coveragepy",
     "component": "runner",
@@ -305,7 +305,7 @@
   },
   {
     "name": "grpcio-tools",
-    "version": "1.83.0",
+    "version": "1.83.1",
     "license": "Apache-2.0",
     "url": "https://grpc.io",
     "component": "runner",
@@ -385,7 +385,7 @@
   },
   {
     "name": "boto3",
-    "version": "1.43.78",
+    "version": "1.43.83",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/boto3",
     "component": "query",
@@ -393,7 +393,7 @@
   },
   {
     "name": "botocore",
-    "version": "1.43.78",
+    "version": "1.43.83",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/botocore",
     "component": "query",
@@ -425,7 +425,7 @@
   },
   {
     "name": "click",
-    "version": "8.4.2",
+    "version": "8.5.0",
     "license": "BSD-3-Clause",
     "url": "https://github.com/pallets/click/",
     "component": "query",
@@ -433,7 +433,7 @@
   },
   {
     "name": "coverage",
-    "version": "7.15.4",
+    "version": "7.16.0",
     "license": "Apache-2.0",
     "url": "https://github.com/coveragepy/coveragepy",
     "component": "query",
@@ -457,7 +457,7 @@
   },
   {
     "name": "grpcio",
-    "version": "1.83.0",
+    "version": "1.83.1",
     "license": "Apache-2.0",
     "url": "https://grpc.io",
     "component": "query",
@@ -465,7 +465,7 @@
   },
   {
     "name": "grpcio-tools",
-    "version": "1.83.0",
+    "version": "1.83.1",
     "license": "Apache-2.0",
     "url": "https://grpc.io",
     "component": "query",
@@ -529,7 +529,7 @@
   },
   {
     "name": "mmh3",
-    "version": "5.2.1",
+    "version": "5.3.0",
     "license": "MIT License",
     "url": "https://pypi.org/project/mmh3/",
     "component": "query",
@@ -577,7 +577,7 @@
   },
   {
     "name": "pydantic",
-    "version": "2.13.4",
+    "version": "2.13.5",
     "license": "MIT",
     "url": "https://github.com/pydantic/pydantic",
     "component": "query",
@@ -585,7 +585,7 @@
   },
   {
     "name": "pydantic_core",
-    "version": "2.46.4",
+    "version": "2.46.5",
     "license": "MIT",
     "url": "https://github.com/pydantic",
     "component": "query",
