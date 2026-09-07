@@ -9,7 +9,7 @@
   },
   {
     "name": "boto3",
-    "version": "1.43.83",
+    "version": "1.43.89",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/boto3",
     "component": "runner",
@@ -17,7 +17,7 @@
   },
   {
     "name": "botocore",
-    "version": "1.43.83",
+    "version": "1.43.89",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/botocore",
     "component": "runner",
@@ -25,7 +25,7 @@
   },
   {
     "name": "cachetools",
-    "version": "6.2.6",
+    "version": "7.1.8",
     "license": "MIT",
     "url": "https://github.com/tkem/cachetools/",
     "component": "runner",
@@ -137,7 +137,7 @@
   },
   {
     "name": "protobuf",
-    "version": "7.36.0",
+    "version": "7.36.1",
     "license": "3-Clause BSD License",
     "url": "https://developers.google.com/protocol-buffers/",
     "component": "runner",
@@ -177,7 +177,7 @@
   },
   {
     "name": "pyiceberg",
-    "version": "0.11.1",
+    "version": "0.12.0",
     "license": "Apache-2.0",
     "url": "https://py.iceberg.apache.org/",
     "component": "runner",
@@ -225,7 +225,7 @@
   },
   {
     "name": "rich",
-    "version": "14.3.4",
+    "version": "15.0.0",
     "license": "MIT License",
     "url": "https://github.com/Textualize/rich",
     "component": "runner",
@@ -385,7 +385,7 @@
   },
   {
     "name": "boto3",
-    "version": "1.43.83",
+    "version": "1.43.89",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/boto3",
     "component": "query",
@@ -393,7 +393,7 @@
   },
   {
     "name": "botocore",
-    "version": "1.43.83",
+    "version": "1.43.89",
     "license": "Apache-2.0",
     "url": "https://github.com/boto/botocore",
     "component": "query",
@@ -401,7 +401,7 @@
   },
   {
     "name": "cachetools",
-    "version": "6.2.6",
+    "version": "7.1.8",
     "license": "MIT",
     "url": "https://github.com/tkem/cachetools/",
     "component": "query",
@@ -561,7 +561,7 @@
   },
   {
     "name": "protobuf",
-    "version": "7.36.0",
+    "version": "7.36.1",
     "license": "3-Clause BSD License",
     "url": "https://developers.google.com/protocol-buffers/",
     "component": "query",
@@ -601,7 +601,7 @@
   },
   {
     "name": "pyiceberg",
-    "version": "0.11.1",
+    "version": "0.12.0",
     "license": "Apache-2.0",
     "url": "https://py.iceberg.apache.org/",
     "component": "query",
@@ -673,7 +673,7 @@
   },
   {
     "name": "rich",
-    "version": "14.3.4",
+    "version": "15.0.0",
     "license": "MIT License",
     "url": "https://github.com/Textualize/rich",
     "component": "query",

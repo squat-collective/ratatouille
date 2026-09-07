@@ -7,9 +7,9 @@
 | Package | Version | License | URL |
 |---------|---------|---------|-----|
 | `annotated-types` | 0.8.0 | MIT | https://github.com/annotated-types/annotated-types |
-| `boto3` | 1.43.83 | Apache-2.0 | https://github.com/boto/boto3 |
-| `botocore` | 1.43.83 | Apache-2.0 | https://github.com/boto/botocore |
-| `cachetools` | 6.2.6 | MIT | https://github.com/tkem/cachetools/ |
+| `boto3` | 1.43.89 | Apache-2.0 | https://github.com/boto/boto3 |
+| `botocore` | 1.43.89 | Apache-2.0 | https://github.com/boto/botocore |
+| `cachetools` | 7.1.8 | MIT | https://github.com/tkem/cachetools/ |
 | `certifi` | 2026.7.22 | Mozilla Public License 2.0 (MPL 2.0) | https://github.com/certifi/python-certifi |
 | `charset-normalizer` | 3.5.1 | MIT | https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md |
 | `click` | 8.5.0 | BSD-3-Clause | https://github.com/pallets/click/ |
@@ -23,18 +23,18 @@
 | `MarkupSafe` | 3.0.3 | BSD-3-Clause | https://github.com/pallets/markupsafe/ |
 | `mdurl` | 0.1.2 | MIT License | https://github.com/executablebooks/mdurl |
 | `mmh3` | 5.3.0 | MIT License | https://pypi.org/project/mmh3/ |
-| `protobuf` | 7.36.0 | 3-Clause BSD License | https://developers.google.com/protocol-buffers/ |
+| `protobuf` | 7.36.1 | 3-Clause BSD License | https://developers.google.com/protocol-buffers/ |
 | `pyarrow` | 25.0.1 | Apache-2.0 | https://arrow.apache.org/ |
 | `pydantic` | 2.13.5 | MIT | https://github.com/pydantic/pydantic |
 | `pydantic_core` | 2.46.5 | MIT | https://github.com/pydantic |
 | `Pygments` | 2.21.0 | BSD-2-Clause | https://pygments.org |
-| `pyiceberg` | 0.11.1 | Apache-2.0 | https://py.iceberg.apache.org/ |
+| `pyiceberg` | 0.12.0 | Apache-2.0 | https://py.iceberg.apache.org/ |
 | `pyparsing` | 3.3.2 | MIT | https://github.com/pyparsing/pyparsing/ |
 | `pyroaring` | 1.1.0 | MIT License | https://github.com/Ezibenroc/PyRoaringBitMap |
 | `python-dateutil` | 2.9.0.post0 | Apache Software License; BSD License | https://github.com/dateutil/dateutil |
 | `PyYAML` | 6.0.3 | MIT License | https://pyyaml.org/ |
 | `requests` | 2.34.2 | Apache Software License | https://github.com/psf/requests |
-| `rich` | 14.3.4 | MIT License | https://github.com/Textualize/rich |
+| `rich` | 15.0.0 | MIT License | https://github.com/Textualize/rich |
 | `s3transfer` | 0.19.2 | Apache Software License | https://github.com/boto/s3transfer |
 | `six` | 1.17.0 | MIT License | https://github.com/benjaminp/six |
 | `strictyaml` | 1.7.3 | MIT License | https://hitchdev.com/strictyaml |
